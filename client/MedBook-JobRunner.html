@@ -1,0 +1,16 @@
+<head>
+  <title>MedBook-JobRunner</title>
+</head>
+
+<body>
+  <h1>Job Runner</h1>
+
+  {{> hello }}
+</body>
+
+<template name="hello">
+  {{> quickForm collection="Jobs" type="insert" omitFields="state"}}
+
+  {{> reactiveTable collection=Jobs settings=settings}}
+</template>
+
