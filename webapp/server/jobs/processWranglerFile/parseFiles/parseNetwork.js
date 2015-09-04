@@ -1,5 +1,5 @@
 wranglerProcessing.parseNetworkInteractions = function(fileObject,
-    helpers, whenDone) {
+    helpers, jobDone) {
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
     if (brokenTabs.length === 3) {
@@ -12,14 +12,17 @@ wranglerProcessing.parseNetworkInteractions = function(fileObject,
       });
     } else {
       helpers.onError("Invalid line: " + line);
-      whenDone();
+      jobDone();
       return;
     }
-  }, whenDone);
+  }, function () {
+    helpers.setFileStatus("done");
+    jobDone();
+  });
 };
 
 wranglerProcessing.parseNetworkElements = function(fileObject,
-    helpers, whenDone) {
+    helpers, jobDone) {
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
     if (brokenTabs.length === 2) {
@@ -31,7 +34,11 @@ wranglerProcessing.parseNetworkElements = function(fileObject,
       });
     } else {
       helpers.onError("Invalid line: " + line);
+      jobDone();
       return;
     }
-  }, whenDone);
+  }, function () {
+    helpers.setFileStatus("done");
+    jobDone();
+  });
 };

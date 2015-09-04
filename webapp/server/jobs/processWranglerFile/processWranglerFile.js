@@ -1,10 +1,11 @@
-jobMethods.processWranglerFile = function (args, whenDone) {
+jobMethods.processWranglerFile = function (args, jobDone) {
   var fileObject = Blobs.findOne(args.file_id);
   var fileName = fileObject.original.name;
 
     var helpers = {};
     helpers = {
-      setFileStatus: function (statusString, errorDescription) {
+      setFileStatus: Meteor.bindEnvironment(
+          function (statusString, errorDescription) {
         var modifier = { $set: { "files.$.status": statusString } };
 
         if (errorDescription !== undefined) {
@@ -15,7 +16,7 @@ jobMethods.processWranglerFile = function (args, whenDone) {
           "_id": fileObject.metadata.submission_id,
           "files.file_id": fileObject._id,
         }, modifier);
-      },
+      }),
       documentInsert: function (collectionName, prospectiveDocument) {
         WranglerDocuments.insert(
           {
@@ -65,9 +66,9 @@ jobMethods.processWranglerFile = function (args, whenDone) {
     }
 
     if (processingName) {
-      wranglerProcessing[processingName](fileObject, helpers, whenDone);
+      wranglerProcessing[processingName](fileObject, helpers, jobDone);
     } else {
-      whenDone();
+      jobDone();
     }
 
     // TODO: if from a compressed file, delete the file on the disk

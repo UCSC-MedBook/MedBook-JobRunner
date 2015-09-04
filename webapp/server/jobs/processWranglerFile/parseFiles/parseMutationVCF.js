@@ -46,7 +46,7 @@ function isProgression(disgustingName) {
   return disgustingName.toLowerCase().indexOf("pro") > -1;
 }
 
-wranglerProcessing.parseMutationVCF = function (fileObject, helpers, whenDone) {
+wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
   var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
 
@@ -160,7 +160,7 @@ wranglerProcessing.parseMutationVCF = function (fileObject, helpers, whenDone) {
       } else {
         helpers.documentInsert("mutations", mutationDoc);
         helpers.setFileStatus("done");
-        whenDone();
+        jobDone();
       }
     });
   })); // end of .on('end')

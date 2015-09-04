@@ -23,7 +23,7 @@ function getSchemaFromName (collectionName) {
   return null;
 }
 
-jobMethods.submitWranglerSubmission = function (args) {
+jobMethods.submitWranglerSubmission = function (args, jobDone) {
   var submissionId = args.submission_id;
   console.log("submissionId:", submissionId);
 
