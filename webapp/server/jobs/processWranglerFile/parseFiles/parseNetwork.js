@@ -1,0 +1,37 @@
+wranglerProcessing.parseNetworkInteractions = function(fileObject,
+    helpers, whenDone) {
+  lineByLineStream(fileObject, function (line) {
+    var brokenTabs = line.split("\t");
+    if (brokenTabs.length === 3) {
+      //console.log("adding interaction:", line);
+      helpers.documentInsert("network_interactions", {
+        "source": brokenTabs[0],
+        "target": brokenTabs[2],
+        "interaction": brokenTabs[1],
+        "superpathway_id": "not_created_yet",
+      });
+    } else {
+      helpers.onError("Invalid line: " + line);
+      whenDone();
+      return;
+    }
+  }, whenDone);
+};
+
+wranglerProcessing.parseNetworkElements = function(fileObject,
+    helpers, whenDone) {
+  lineByLineStream(fileObject, function (line) {
+    var brokenTabs = line.split("\t");
+    if (brokenTabs.length === 2) {
+      // console.log("adding definition:", line);
+      helpers.documentInsert("network_elements", {
+        "label": brokenTabs[1],
+        "type": brokenTabs[0],
+        "superpathway_id": "not_created_yet",
+      });
+    } else {
+      helpers.onError("Invalid line: " + line);
+      return;
+    }
+  }, whenDone);
+};

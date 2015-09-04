@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "byline": {
+      "version": "4.2.1"
+    },
+    "temp": {
+      "version": "0.8.1",
+      "dependencies": {
+        "rimraf": {
+          "version": "2.2.8"
+        }
+      }
+    },
+    "vcf.js": {
+      "version": "0.2.0",
+      "dependencies": {
+        "underscore": {
+          "version": "1.8.3"
+        }
+      }
+    }
+  }
+}
