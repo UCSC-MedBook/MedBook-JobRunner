@@ -16,6 +16,8 @@ wranglerProcessing.parseNetworkInteractions = function(fileObject,
       return;
     }
   }, function () {
+    // TODO: make one call: one atomic update better than two
+    helpers.addReviewType("superpathway");
     helpers.setFileStatus("done");
     jobDone();
   });
@@ -38,6 +40,7 @@ wranglerProcessing.parseNetworkElements = function(fileObject,
       return;
     }
   }, function () {
+    helpers.addReviewType("superpathway");
     helpers.setFileStatus("done");
     jobDone();
   });

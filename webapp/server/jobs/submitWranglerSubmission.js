@@ -43,6 +43,7 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
       });
 
   function setSubmissionStatus(newStatus) {
+    // TODO: this is being called multiple times with mutations
     console.log("new submission status:", newStatus);
     WranglerSubmissions.update(submissionId, {$set: {"status": newStatus}});
   }

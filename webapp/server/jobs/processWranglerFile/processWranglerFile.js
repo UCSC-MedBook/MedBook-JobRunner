@@ -34,6 +34,13 @@ jobMethods.processWranglerFile = function (args, jobDone) {
           }
         );
       },
+      addReviewType: Meteor.bindEnvironment(function (typeName) {
+        WranglerSubmissions.update({
+          "_id": fileObject.metadata.submission_id,
+        }, {
+          $addToSet: { "document_types": typeName }
+        });
+      }),
     };
     // has to be after because code runs immidiately
     helpers.onError = _.partial(helpers.setFileStatus, "error");

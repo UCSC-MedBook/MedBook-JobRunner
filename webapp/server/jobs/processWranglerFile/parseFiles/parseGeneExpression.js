@@ -40,11 +40,16 @@ wranglerProcessing.parseGeneExpression = function(fileObject, normalization,
         });
       } else {
         helpers.onError("Invalid line: " + line);
+        jobDone();
         return;
       }
     } else {
       console.log("discarding header line:", line);
       parsedFirstLine = true;
     }
+  }, function () {
+    helpers.addReviewType("gene_expression");
+    helpers.setFileStatus("done");
+    jobDone();
   });
 };
