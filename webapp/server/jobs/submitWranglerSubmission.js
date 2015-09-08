@@ -1,9 +1,9 @@
 function getCollectionByName (collectionName) {
   switch (collectionName) {
-    case "network_elements":
-      return NetworkElements;
-    case "network_interactions":
-      return NetworkInteractions;
+    case "superpathway_elements":
+      return SuperpathwayElements;
+    case "superpathway_interactions":
+      return SuperpathwayInteractions;
     case "mutations":
       return Mutations;
     case "gene_expression":
@@ -48,29 +48,32 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
     WranglerSubmissions.update(submissionId, {$set: {"status": newStatus}});
   }
 
-  if (noErrors !== true) {
-    setSubmissionStatus("editing");
+  if (noErrors === true) {
+    setSubmissionStatus("writing");
+
+    // var updateGeneExpression = true;
+    // if (WranglerDocuments.findOne({
+    //       "submission_id": submissionId,
+    //       "collection_name": "gene_expression",
+    //     })) {
+    //   // TODO: update GeneExpressionSummary
+    // }
+
+    // TODO: https://docs.mongodb.org/v3.0/tutorial/perform-two-phase-commits/
+    WranglerDocuments.find({"submission_id": submissionId})
+        .forEach(function (object) {
+          getCollectionByName(object.collection_name)
+              .insert(object.prospective_document);
+          WranglerDocuments.remove(object._id);
+        });
+
+    setSubmissionStatus("done");
+  } else {
     // TODO: should we email them or something?
-    return "submission invalid: objects did not pass schema validation";
+    console.log("submission invalid: objects did not pass schema validation");
+
+    setSubmissionStatus("editing");
   }
 
-  setSubmissionStatus("writing");
-
-  // var updateGeneExpression = true;
-  // if (WranglerDocuments.findOne({
-  //       "submission_id": submissionId,
-  //       "collection_name": "gene_expression",
-  //     })) {
-  //   // TODO: update GeneExpressionSummary
-  // }
-
-  // TODO: https://docs.mongodb.org/v3.0/tutorial/perform-two-phase-commits/
-  WranglerDocuments.find({"submission_id": submissionId})
-      .forEach(function (object) {
-        getCollectionByName(object.collection_name)
-            .insert(object.prospective_document);
-        WranglerDocuments.remove(object._id);
-      });
-
-  setSubmissionStatus("done");
+  jobDone();
 };

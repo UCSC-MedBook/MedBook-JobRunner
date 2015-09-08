@@ -52,10 +52,10 @@ jobMethods.processWranglerFile = function (args, jobDone) {
     var processingName;
 
     if (extensionEquals(".sif")) {
-      processingName = "parseNetworkInteractions";
+      processingName = "parseSuperpathwayInteractions";
     } else if (extensionEquals(".tab") &&
         fileName.indexOf("definitions") > -1) {
-      processingName = "parseNetworkElements";
+      processingName = "parseSuperpathwayElements";
     } else if (extensionEquals(".vcf")) {
       processingName = "parseMutationVCF";
 	  } else if (extensionEquals(".tar.gz")) {
