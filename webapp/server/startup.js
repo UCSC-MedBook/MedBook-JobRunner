@@ -56,7 +56,7 @@ Meteor.startup(function () {
     name: 'start-next-job',
     schedule: function(parser) {
       // parser is a later.parse object
-      return parser.text('every 2 seconds');
+      return parser.text('every 1 seconds');
     },
     job: runNextJob,
   });

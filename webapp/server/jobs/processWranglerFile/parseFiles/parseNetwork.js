@@ -1,5 +1,7 @@
 wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
     helpers, jobDone) {
+  helpers.addReviewType("superpathway");
+
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
     if (brokenTabs.length === 3) {
@@ -16,8 +18,6 @@ wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
       return;
     }
   }, function () {
-    // TODO: make one call: one atomic update better than two
-    helpers.addReviewType("superpathway");
     helpers.setFileStatus("done");
     jobDone();
   });
@@ -25,6 +25,8 @@ wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
 
 wranglerProcessing.parseSuperpathwayElements = function(fileObject,
     helpers, jobDone) {
+  helpers.addReviewType("superpathway");
+
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
     if (brokenTabs.length === 2) {
@@ -40,7 +42,6 @@ wranglerProcessing.parseSuperpathwayElements = function(fileObject,
       return;
     }
   }, function () {
-    helpers.addReviewType("superpathway");
     helpers.setFileStatus("done");
     jobDone();
   });

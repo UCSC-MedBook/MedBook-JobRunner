@@ -47,6 +47,8 @@ function isProgression(disgustingName) {
 }
 
 wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
+  helpers.addReviewType("mutation");
+
   var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
 
@@ -159,7 +161,6 @@ wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
         // console.log("not adding low impact mutation...");
       } else {
         helpers.documentInsert("mutations", mutationDoc);
-        helpers.addReviewType("mutation");
         helpers.setFileStatus("done");
         jobDone();
       }
