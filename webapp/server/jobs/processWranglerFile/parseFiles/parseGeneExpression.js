@@ -48,7 +48,6 @@ wranglerProcessing.parseGeneExpression = function(fileObject, normalization,
       parsedFirstLine = true;
     }
   }, function () {
-    helpers.addReviewType("gene_expression");
     helpers.setFileStatus("done");
     jobDone();
   });

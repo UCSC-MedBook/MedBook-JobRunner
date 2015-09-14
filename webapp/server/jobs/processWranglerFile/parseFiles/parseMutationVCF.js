@@ -47,8 +47,6 @@ function isProgression(disgustingName) {
 }
 
 wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
-  helpers.addReviewType("mutation");
-
   var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
 

@@ -1,21 +1,3 @@
-function getCollectionByName (collectionName) {
-  switch (collectionName) {
-    case "superpathway_elements":
-      return SuperpathwayElements;
-    case "superpathway_interactions":
-      return SuperpathwayInteractions;
-    case "mutations":
-      return Mutations;
-    case "gene_expression":
-      return GeneExpression;
-    case "superpathways":
-      return Superpathways;
-    default:
-      console.log("couldn't find appropriate schema");
-      return null;
-  }
-}
-
 function getSchemaFromName (collectionName) {
   var collection = getCollectionByName(collectionName);
   if (collection)
@@ -113,7 +95,8 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
   var noSchemaErrors = true;
   allDocumentsCursor.forEach(function (object) {
     if (noSchemaErrors) { // only if there are no errors so far
-      var context = getSchemaFromName(object.collection_name)
+      var context = getCollectionByName(object.collection_name)
+          .simpleSchema()
           .newContext();
       if (context.validate(object.prospective_document)) {
         // console.log("we all good");

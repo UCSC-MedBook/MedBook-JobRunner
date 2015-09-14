@@ -1,6 +1,5 @@
 wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
     helpers, jobDone) {
-  helpers.addReviewType("superpathway");
 
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
@@ -25,7 +24,6 @@ wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
 
 wranglerProcessing.parseSuperpathwayElements = function(fileObject,
     helpers, jobDone) {
-  helpers.addReviewType("superpathway");
 
   lineByLineStream(fileObject, function (line) {
     var brokenTabs = line.split("\t");
