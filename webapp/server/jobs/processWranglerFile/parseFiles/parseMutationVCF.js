@@ -149,7 +149,8 @@ wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
       if (mutationDoc.mutation_type === undefined) {
         mutationDoc.mutation_type = "snp";
       }
-      if (mutationDoc.start_position !== undefined) {
+      if (mutationDoc.start_position !== undefined &&
+          mutationDoc.mutation_type === "snp") {
         // TODO: hardcoded
         mutationDoc.end_position = mutationDoc.start_position + 1;
       }
