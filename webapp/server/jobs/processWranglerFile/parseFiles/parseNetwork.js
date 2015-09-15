@@ -9,7 +9,6 @@ wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
         "source": brokenTabs[0],
         "target": brokenTabs[2],
         "interaction": brokenTabs[1],
-        "superpathway_id": "not_created_yet",
       });
     } else {
       helpers.onError("Invalid line: " + line);
@@ -32,7 +31,6 @@ wranglerProcessing.parseSuperpathwayElements = function(fileObject,
       helpers.documentInsert("superpathway_elements", {
         "label": brokenTabs[1],
         "type": brokenTabs[0],
-        "superpathway_id": "not_created_yet",
       });
     } else {
       helpers.onError("Invalid line: " + line);
