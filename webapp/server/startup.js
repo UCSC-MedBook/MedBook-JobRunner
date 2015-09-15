@@ -1,5 +1,5 @@
 function setJobStatus(job, newStatus) {
-  console.log("job newStatus:", newStatus);
+  console.log("job:", newStatus);
   Jobs.update(job._id, { $set: { "status": newStatus } });
 }
 

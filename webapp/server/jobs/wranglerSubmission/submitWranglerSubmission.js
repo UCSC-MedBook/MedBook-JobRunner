@@ -1,12 +1,11 @@
 jobMethods.submitWranglerSubmission = function (args, jobDone) {
-  console.log("submitWranglerSubmission");
 
   var submissionId = args.submission_id;
   var options = WranglerSubmissions.findOne(submissionId).options;
 
   function setSubmissionStatus(newStatus) {
     // TODO: this is being called multiple times with mutations
-    console.log("submission status:", newStatus);
+    console.log("submission:", newStatus);
     WranglerSubmissions.update(submissionId, {$set: {"status": newStatus}});
   }
 
@@ -67,8 +66,6 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
     return;
   }
 
-  console.log("found submissionType:", submissionType);
-
   // modify before validation
   switch (submissionType) {
     case "mutation":
@@ -100,8 +97,6 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
       }, {multi: true});
   }
 
-  console.log("before validation");
-
   // validate all objects using their relative schemas
   var contextCache = {};
   function getContext(collectionName) {
@@ -117,7 +112,7 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
       .forEach(function (object) {
     var context = getContext(object.collection_name);
     if (context.validate(object.prospective_document)) {
-      console.log("we all good");
+      // console.log("we all good");
     } else {
       errorCount++;
       addSubmissionError("Invalid document present");
@@ -131,8 +126,6 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
     return;
   }
 
-  console.log("after validation");
-
   // validate for specific types
   switch (submissionType) {
     case "superpathway":
@@ -143,7 +136,7 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
       break;
   }
 
-  // can't change it anymore
+  // can't change it while it's writing to the database
   setSubmissionStatus("writing");
 
   // modify after validation
@@ -178,11 +171,15 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
 
   // TODO: https://docs.mongodb.org/v3.0/tutorial/perform-two-phase-commits/
   WranglerDocuments.find({"submission_id": submissionId})
-      .forEach(function (object) {
-        getCollectionByName(object.collection_name)
-            .insert(object.prospective_document);
-        // WranglerDocuments.remove(object._id);
-        });
+      .forEach(function (currentDocument) {
+    getCollectionByName(currentDocument.collection_name)
+        .insert(currentDocument.prospective_document);
+    WranglerDocuments.update(currentDocument, {
+      $set: {
+        "inserted_into_database": true
+      }
+    });
+  });
 
   setSubmissionStatus("done");
   jobDone();
