@@ -1,25 +1,37 @@
-jobMethods.submitWranglerSubmission = function (args, jobDone) {
+// TODO: get rid of all of these case statements
 
-  var submissionId = args.submission_id;
+function processSubmission (submissionId) {
   var options = WranglerSubmissions.findOne(submissionId).options;
 
-  function setSubmissionStatus(newStatus) {
+  // define helpers
+  function setSubmissionStatus (newStatus) {
     // TODO: this is being called multiple times with mutations
     console.log("submission:", newStatus);
     WranglerSubmissions.update(submissionId, {$set: {"status": newStatus}});
   }
-
-  // remove all submission errors
-  WranglerSubmissions.update(submissionId, { $set: { "errors": [] } });
-  var errorCount = 0;
-  function addSubmissionError(description) {
+  function documentCursor (collectionName) {
+    return WranglerDocuments.find({
+      "submission_id": submissionId,
+      "collection_name": collectionName,
+    });
+  }
+  function documentCount (collectionName) {
+    return documentCursor(collectionName).count();
+  }
+  function addSubmissionError (description) {
     errorCount++;
     WranglerSubmissions.update(submissionId, {
       $addToSet: {
         "errors": description,
       }
     });
+    setSubmissionStatus("editing");
   }
+  var binarysearch = Meteor.npmRequire('binarysearch');
+
+  // remove all previous submission errors
+  WranglerSubmissions.update(submissionId, { $set: { "errors": [] } });
+  var errorCount = 0;
 
   // make sure each file is "done"
   _.each(WranglerSubmissions.findOne(submissionId).files, function (value) {
@@ -28,41 +40,31 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
     }
   });
   if (errorCount > 0) {
-    setSubmissionStatus("editing");
-    jobDone();
     return;
   }
 
   // make sure there are some documents
-  var documentCount = WranglerDocuments
+  var totalCount = WranglerDocuments
       .find({"submission_id": submissionId})
       .count();
-  if (documentCount === 0) {
+  if (totalCount === 0) {
     addSubmissionError("No documents present");
-    setSubmissionStatus("editing");
-    jobDone();
     return;
   }
 
   // figure out the submission type
-  function collectionCount (collectionName) {
-    return WranglerDocuments.find({
-      "submission_id": submissionId,
-      "collection_name": collectionName,
-    }).count();
-  }
-
   var submissionType;
-  if (documentCount === collectionCount("mutations")) {
+  if (totalCount === documentCount("mutations")) {
     submissionType = "mutation";
-  } else if (documentCount === (collectionCount("superpathway_elements") +
-      collectionCount("superpathway_interactions"))) {
+  } else if (totalCount === (documentCount("superpathway_elements") +
+      documentCount("superpathway_interactions"))) {
     submissionType = "superpathway";
   }
   if (!submissionType) {
+    console.log("documentCount('superpathway_elements'):", documentCount('superpathway_elements'));
+    console.log("documentCount('superpathway_interactions'):", documentCount('superpathway_interactions'));
+    console.log("totalCount:", totalCount);
     addSubmissionError("Mixed document types");
-    setSubmissionStatus("editing");
-    jobDone();
     return;
   }
 
@@ -121,18 +123,54 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
     }
   });
   if (errorCount > 0) {
-    setSubmissionStatus("editing");
-    jobDone();
     return;
   }
 
   // validate for specific types
   switch (submissionType) {
     case "superpathway":
-      // TODO: make sure superpathway is totally valid
-      // - superpathway_elements is unique
-      // - superpathway_interactions correspond to elements
-      // -
+      // make sure they have data for elements and interactions
+      if (documentCount("superpathway_elements") < 2 ||
+          documentCount("superpathway_interactions") < 2) {
+        addSubmissionError("Superpathways must have at least two" +
+            " elements and two interactions");
+        return;
+      }
+
+      // make sure each element label is unique
+      var foundProblem = false;
+      var elementLabels = documentCursor("superpathway_elements")
+          .map(function (document) {
+            return document.prospective_document.label;
+          });
+      elementLabels.sort();
+      console.log("ensure sorted:");
+      console.log("elementLabels:", elementLabels);
+      _.each(elementLabels.slice(1), function (label, index) {
+        // index in here are one off from elementLabels (did a slice)
+        if (label === elementLabels[index]) {
+          addSubmissionError("Duplicate element names: " + label);
+          foundProblem = true;
+        }
+      });
+
+      // make sure labels in interactions are defined in elements
+      function ensureLabelExists (label) {
+        if (binarysearch(elementLabels, label) !== -1) {
+          addSubmissionError(label + " used in interactions without a" +
+              " corresponding entry in elements");
+          foundProblem = true;
+        }
+      }
+      documentCursor("superpathway_interactions")
+          .forEach(function (document) {
+        ensureLabelExists(document.prospective_document.source);
+        ensureLabelExists(document.prospective_document.target);
+      });
+
+      if (foundProblem) {
+        return;
+      }
       break;
   }
 
@@ -182,5 +220,9 @@ jobMethods.submitWranglerSubmission = function (args, jobDone) {
   });
 
   setSubmissionStatus("done");
+}
+
+jobMethods.submitWranglerSubmission = function (args, jobDone) {
+  processSubmission(args.submission_id);
   jobDone();
 };

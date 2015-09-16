@@ -22,8 +22,8 @@ function isProgression(fileName) {
   return fileName.toLowerCase().indexOf("pro") > -1;
 }
 
-wranglerProcessing.parseGeneExpression = function(fileObject, normalization,
-    helpers) {
+wranglerProcessing.parseGeneExpression = function(fileObject, helpers,
+    jobDone) {
   var sampleLabel = wrangleSampleLabel(fileObject.original.name);
   console.log("sampleLabel:", sampleLabel);
 
@@ -34,7 +34,7 @@ wranglerProcessing.parseGeneExpression = function(fileObject, normalization,
       if (brokenTabs.length === 2) {
         helpers.documentInsert("gene_expression", {
           "sample_label": sampleLabel,
-          "normalization": normalization,
+          "normalization": helpers.normalization,
           "gene_label": brokenTabs[0],
           "value": parseFloat(brokenTabs[1]),
         });

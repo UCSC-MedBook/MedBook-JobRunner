@@ -1,5 +1,6 @@
 {
   "byline": "4.2.1",
   "vcf.js": "0.2.0",
-  "temp": "0.8.1"
+  "temp": "0.8.1",
+  "binarysearch": "0.2.4"
 }

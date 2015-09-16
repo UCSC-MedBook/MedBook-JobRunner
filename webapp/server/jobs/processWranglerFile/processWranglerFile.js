@@ -28,6 +28,7 @@ jobMethods.processWranglerFile = function (args, jobDone) {
       WranglerDocuments.insert(
         {
           "submission_id": fileObject.metadata.submission_id,
+          "user_id": fileObject.metadata.user_id,
           "collection_name": collectionName,
           "prospective_document": prospectiveDocument,
           "wrangler_file_id": wranglerFile._id,
@@ -63,12 +64,16 @@ jobMethods.processWranglerFile = function (args, jobDone) {
   } else if (extensionEquals(".tar.gz")) {
     processingName = "uncompressTarGz";
   } else if (extensionEquals(".rsem.genes.raw_counts.tab")) {
+    helpers.normalization = "raw_counts";
     processingName = "parseGeneExpression";
   } else if (extensionEquals(".rsem.genes.norm_counts.tab")) {
+    helpers.normalization = "counts";
     processingName = "parseGeneExpression";
   } else if (extensionEquals(".rsem.genes.norm_tpm.tab")) {
+    helpers.normalization = "tpm";
     processingName = "parseGeneExpression";
   } else if (extensionEquals(".rsem.genes.norm_fpkm.tab")) {
+    helpers.normalization = "fpkm";
     processingName = "parseGeneExpression";
   } else {
     helpers.onError("unknown file type");

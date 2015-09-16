@@ -17,9 +17,8 @@ function removeForce(path) {
   });
 }
 
-wranglerProcessing.uncompressTarGz = function(compressedFile, helpers) {
-  helpers.setFileStatus("uncompressing");
-
+wranglerProcessing.uncompressTarGz = function(compressedFile, helpers,
+    jobDone) {
   // TODO: helper.onError with console log messages
 
   // TODO: delete these folders
@@ -89,20 +88,20 @@ wranglerProcessing.uncompressTarGz = function(compressedFile, helpers) {
                   }
                 });
 
-                WranglerSubmissions.update(submissionId, {
-                  $addToSet: {
-                    "files": {
-                      "file_id": fileObject._id,
-                      "file_name": newFileName,
-                      "status": "saving",
-                    }
-                  }
+                WranglerFiles.insert({
+                  "submission_id": submissionId,
+                  "user_id": compressedFile.metadata.user_id,
+                  "file_id": fileObject._id,
+                  "file_name": newFileName,
+                  "status": "saving",
+                  "uncompressed_from_id": compressedFile._id,
                 });
               }
             });
           });
 
           helpers.setFileStatus("done");
+          jobDone();
 
           // TODO: remove the compressed file from the submission?
         }
