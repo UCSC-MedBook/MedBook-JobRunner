@@ -3,8 +3,14 @@ function setJobStatus(job, newStatus) {
   Jobs.update(job._id, { $set: { "status": newStatus } });
 }
 
-function whenDone(job) {
-  setJobStatus(job, "done");
+function whenDone(job, toRetry) {
+  var newStatus;
+  if (toRetry) {
+    newStatus = "waiting";
+  } else {
+    newStatus = "done";
+  }
+  setJobStatus(job, newStatus);
 }
 
 function runNextJob () {
@@ -16,7 +22,7 @@ function runNextJob () {
 
   // TODO: need to make sure we don't grab the same job twice
   var job = Jobs.findOne({ "status": "waiting" },
-      { sort: [["date_created", "ascending"]] });
+      { sort: [["date_modified", "ascending"]] });
 
   if (job) {
     setJobStatus(job, "running");
@@ -56,7 +62,7 @@ Meteor.startup(function () {
     name: 'start-next-job',
     schedule: function(parser) {
       // parser is a later.parse object
-      return parser.text('every 1 seconds');
+      return parser.text('every 1 second');
     },
     job: runNextJob,
   });

@@ -17,7 +17,7 @@ function removeForce(path) {
   });
 }
 
-wranglerProcessing.uncompressTarGz = function(compressedFile, helpers,
+parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
     jobDone) {
   // TODO: helper.onError with console log messages
 
@@ -42,7 +42,6 @@ wranglerProcessing.uncompressTarGz = function(compressedFile, helpers,
     });
     readStream.on("end", Meteor.bindEnvironment(function () {
       helpers.setFileStatus("processing");
-      removeForce(compressedPath);
 
       // note: don't care about stdout (files listed on stderr)
       var errorArray = [];
@@ -56,48 +55,64 @@ wranglerProcessing.uncompressTarGz = function(compressedFile, helpers,
       tar.on("close", Meteor.bindEnvironment(function (exitCode) {
         if (exitCode !== 0) {
           console.log("error running tar job:", compressedFileName);
+          jobDone();
         } else {
+          // // remove compressed file
+          // removeForce(compressedPath);
+
           // filter so we don't get empty lines or folders (end with '/')
           // then map over them to remove the "x " before each line
           var fileNames = _.map(_.filter(errorArray.join("").split("\n"),
                   function (consoleLine) {
+                var hiddenFileMatches = consoleLine.match(/\/\./g);
+
                 return consoleLine.length > 0 &&
-                    consoleLine.slice(-1) !== "/";
+                    consoleLine.slice(-1) !== "/" &&
+                    hiddenFileMatches === null;
               }), function (consoleLine) {
                 return consoleLine.substring(2);
               });
 
           // process each file
+          // var successfullyInserted = 0;
+          // var toInsertCount = fileNames.length;
           _.each(fileNames, function (newFileName) {
-            Blobs.insert(path.join(workingDir, newFileName),
-                function (error, fileObject) {
-              // NOTE: assumption made that this callback runs before the
-              // .on("stored") function for the file
+            console.log("newFileName:", newFileName);
+            // insert: this kind of insert only works on the server
+            var blobObject = Blobs.insert(path.join(workingDir, newFileName));
 
-              if (error) {
-                console.log("error adding blob from uncompressed:", error);
-              } else {
-                // set some stuff about the new file
-                fileObject.name(newFileName);
-                var submissionId = compressedFile.metadata.submission_id;
-                Blobs.update({_id: fileObject._id}, {
-                  $set: {
-                    "metadata.uncompressed_from_id": compressedFile._id,
-                    "metadata.user_id": compressedFile.metadata.user_id,
-                    "metadata.submission_id": submissionId,
-                  }
-                });
-
-                WranglerFiles.insert({
-                  "submission_id": submissionId,
-                  "user_id": compressedFile.metadata.user_id,
-                  "file_id": fileObject._id,
-                  "file_name": newFileName,
-                  "status": "saving",
-                  "uncompressed_from_id": compressedFile._id,
-                });
+            // set some stuff about the new file
+            blobObject.name(newFileName);
+            var submissionId = compressedFile.metadata.submission_id;
+            Blobs.update({_id: blobObject._id}, {
+              $set: {
+                "metadata.uncompressed_from_id": compressedFile._id,
+                "metadata.user_id": compressedFile.metadata.user_id,
+                "metadata.submission_id": submissionId,
               }
             });
+
+            var wranglerFileId = WranglerFiles.insert({
+              "submission_id": submissionId,
+              "user_id": compressedFile.metadata.user_id,
+              "blob_id": blobObject._id,
+              "blob_name": newFileName,
+              "status": "saving",
+              "uncompressed_from_id": compressedFile._id,
+            });
+
+            Jobs.insert({
+              "name": "differentiateWranglerFile",
+              "date_created": new Date(),
+              "args": {
+                "wrangler_file_id": wranglerFileId,
+              },
+            });
+
+            // successfullyInserted++;
+            // if (successfullyInserted === toInsertCount) {
+            //
+            // }
           });
 
           helpers.setFileStatus("done");

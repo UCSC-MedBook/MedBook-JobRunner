@@ -1,4 +1,4 @@
-wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
+parsingFunctions.parseSuperpathwayInteractions = function(fileObject,
     helpers, jobDone) {
 
   lineByLineStream(fileObject, function (line) {
@@ -21,7 +21,7 @@ wranglerProcessing.parseSuperpathwayInteractions = function(fileObject,
   });
 };
 
-wranglerProcessing.parseSuperpathwayElements = function(fileObject,
+parsingFunctions.parseSuperpathwayElements = function(fileObject,
     helpers, jobDone) {
 
   lineByLineStream(fileObject, function (line) {

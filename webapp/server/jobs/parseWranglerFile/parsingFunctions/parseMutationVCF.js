@@ -46,7 +46,7 @@ function isProgression(disgustingName) {
   return disgustingName.toLowerCase().indexOf("pro") > -1;
 }
 
-wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
+parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
   var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
 
@@ -73,11 +73,12 @@ wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
       sampleLabel += "Pro";
     }
 
+
     _.mapObject(data.records, function (record) {
+
       var mutationDoc = {
         "sample_label": sampleLabel,
       };
-
 
       var directMappings = {
         "REF": "reference_allele",
@@ -160,9 +161,10 @@ wranglerProcessing.parseMutationVCF = function (fileObject, helpers, jobDone) {
         // console.log("not adding low impact mutation...");
       } else {
         helpers.documentInsert("mutations", mutationDoc);
-        helpers.setFileStatus("done");
-        jobDone();
       }
     });
+
+    helpers.setFileStatus("done");
+    jobDone();
   })); // end of .on('end')
 };

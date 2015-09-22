@@ -22,14 +22,14 @@ function isProgression(fileName) {
   return fileName.toLowerCase().indexOf("pro") > -1;
 }
 
-wranglerProcessing.parseGeneExpression = function(fileObject, helpers,
+parsingFunctions.parseGeneExpression = function(fileObject, helpers,
     jobDone) {
   var sampleLabel = wrangleSampleLabel(fileObject.original.name);
-  console.log("sampleLabel:", sampleLabel);
 
-  var parsedFirstLine = false;
-  lineByLineStream(fileObject, function (line) {
-    if (parsedFirstLine) {
+  lineByLineStream(fileObject, function (line, lineIndex) {
+    if (lineIndex === 0) {
+      console.log("discarding header line:", line);
+    } else {
       var brokenTabs = line.split("\t");
       if (brokenTabs.length === 2) {
         helpers.documentInsert("gene_expression", {
@@ -38,14 +38,15 @@ wranglerProcessing.parseGeneExpression = function(fileObject, helpers,
           "gene_label": brokenTabs[0],
           "value": parseFloat(brokenTabs[1]),
         });
+
+        if (lineIndex % 1000 === 0) {
+          console.log("lineIndex:", lineIndex);
+        }
       } else {
         helpers.onError("Invalid line: " + line);
         jobDone();
         return;
       }
-    } else {
-      console.log("discarding header line:", line);
-      parsedFirstLine = true;
     }
   }, function () {
     helpers.setFileStatus("done");

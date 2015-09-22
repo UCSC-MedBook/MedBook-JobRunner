@@ -3,6 +3,13 @@
 function processSubmission (submissionId) {
   var options = WranglerSubmissions.findOne(submissionId).options;
 
+  // before we begin...
+  var binarysearch = Meteor.npmRequire('binarysearch');
+
+  // remove all previous submission errors
+  WranglerSubmissions.update(submissionId, { $set: { "errors": [] } });
+  var errorCount = 0; // increased with addSubmissionError
+
   // define helpers
   function setSubmissionStatus (newStatus) {
     // TODO: this is being called multiple times with mutations
@@ -19,19 +26,19 @@ function processSubmission (submissionId) {
     return documentCursor(collectionName).count();
   }
   function addSubmissionError (description) {
-    errorCount++;
-    WranglerSubmissions.update(submissionId, {
-      $addToSet: {
-        "errors": description,
-      }
-    });
-    setSubmissionStatus("editing");
-  }
-  var binarysearch = Meteor.npmRequire('binarysearch');
+    if (errorCount < 25) {
+      WranglerSubmissions.update(submissionId, {
+        $addToSet: {
+          "errors": description,
+        }
+      });
+    }
 
-  // remove all previous submission errors
-  WranglerSubmissions.update(submissionId, { $set: { "errors": [] } });
-  var errorCount = 0;
+    if (errorCount === 0) { // no need to set it twice
+      setSubmissionStatus("editing");
+    }
+    errorCount++;
+  }
 
   // make sure each file is "done"
   _.each(WranglerSubmissions.findOne(submissionId).files, function (value) {
@@ -52,18 +59,40 @@ function processSubmission (submissionId) {
     return;
   }
 
+  var distinctCollectionNames = _.uniq(_.pluck(WranglerDocuments.find({
+        "submission_id": submissionId
+      }, {
+        sort: { "collection_name": 1 },
+        fields: { "collection_name": true },
+      })
+      .fetch(), "collection_name"), true);
+
+  function collectionNamesWithin (names) {
+    // // make sure length matches
+    // if (names.length !== distinctCollectionNames.length) {
+    //   return false;
+    // }
+
+    // checks that contents matches
+    return _.every(distinctCollectionNames, function (value) {
+      return _.contains(names, value);
+    });
+  }
+
   // figure out the submission type
   var submissionType;
-  if (totalCount === documentCount("mutations")) {
+  if (collectionNamesWithin(["mutations"])) {
     submissionType = "mutation";
-  } else if (totalCount === (documentCount("superpathway_elements") +
-      documentCount("superpathway_interactions"))) {
+  } else if (collectionNamesWithin([
+        "superpathway_elements",
+        "superpathway_interactions"
+      ])) {
     submissionType = "superpathway";
   }
+  else if (collectionNamesWithin(["gene_expression"])) {
+   submissionType = "gene_expression";
+ }
   if (!submissionType) {
-    console.log("documentCount('superpathway_elements'):", documentCount('superpathway_elements'));
-    console.log("documentCount('superpathway_interactions'):", documentCount('superpathway_interactions'));
-    console.log("totalCount:", totalCount);
     addSubmissionError("Mixed document types");
     return;
   }
@@ -95,6 +124,16 @@ function processSubmission (submissionId) {
       }, {
         $set: {
           "prospective_document.superpathway_id": "soon_to_be_created!",
+        }
+      }, {multi: true});
+      break;
+    case "gene_expression":
+      WranglerDocuments.update({
+        "submission_id": submissionId,
+        "collection_name": "gene_expression",
+      }, {
+        $set: {
+          "prospective_document.study_label": options.study_label,
         }
       }, {multi: true});
   }
@@ -144,8 +183,6 @@ function processSubmission (submissionId) {
             return document.prospective_document.label;
           });
       elementLabels.sort();
-      console.log("ensure sorted:");
-      console.log("elementLabels:", elementLabels);
       _.each(elementLabels.slice(1), function (label, index) {
         // index in here are one off from elementLabels (did a slice)
         if (label === elementLabels[index]) {
