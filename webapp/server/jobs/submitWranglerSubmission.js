@@ -2,6 +2,7 @@
 
 function processSubmission (submissionId) {
   var options = WranglerSubmissions.findOne(submissionId).options;
+  console.log("options:", options);
 
   // before we begin...
   var binarysearch = Meteor.npmRequire('binarysearch');
@@ -90,12 +91,20 @@ function processSubmission (submissionId) {
     submissionType = "superpathway";
   }
   else if (collectionNamesWithin(["gene_expression"])) {
-   submissionType = "gene_expression";
- }
+    submissionType = "gene_expression";
+  }
   if (!submissionType) {
     addSubmissionError("Mixed document types");
     return;
   }
+
+  // modify generically before validation
+  WranglerDocuments.update({ "submission_id": submissionId }, {
+    $set: {
+      "prospective_document.study_label": options.study_label,
+      "prospective_document.collaboration_label": options.collaboration_label,
+    }
+  }, { multi: true });
 
   // modify before validation
   switch (submissionType) {
@@ -123,19 +132,11 @@ function processSubmission (submissionId) {
         },
       }, {
         $set: {
+          // so that it is valid according to the schema
           "prospective_document.superpathway_id": "soon_to_be_created!",
         }
       }, {multi: true});
       break;
-    case "gene_expression":
-      WranglerDocuments.update({
-        "submission_id": submissionId,
-        "collection_name": "gene_expression",
-      }, {
-        $set: {
-          "prospective_document.study_label": options.study_label,
-        }
-      }, {multi: true});
   }
 
   // validate all objects using their relative schemas
@@ -162,6 +163,7 @@ function processSubmission (submissionId) {
     }
   });
   if (errorCount > 0) {
+    addSubmissionError("Invalid documents");
     return;
   }
 

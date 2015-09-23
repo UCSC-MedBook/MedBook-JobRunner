@@ -47,7 +47,13 @@ function isProgression(disgustingName) {
 }
 
 parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
-  var vcf = Meteor.npmRequire('vcf.js');
+  try {
+    var vcf = Meteor.npmRequire('vcf.js');
+  } catch (e) {
+    console.log("we caught the error!! :)");
+    console.log("e:", e);
+  }
+    
   var blob = "";
 
   var stream = fileObject.createReadStream("blobs")
