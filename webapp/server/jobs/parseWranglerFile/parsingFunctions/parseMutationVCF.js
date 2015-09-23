@@ -132,6 +132,8 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
                 }
               } else if (infoKey === "TYPE") {
                 setHighLevel(mutationDoc, "mutation_type", infoValue);
+							} else if (infoKey === "DP") {
+								setHighLevel(mutationDoc, "read_depth", infoValue);
               } else {
                 // console.log("unknown key in INFO:", infoKey);
               }
