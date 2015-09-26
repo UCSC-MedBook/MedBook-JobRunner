@@ -19,13 +19,14 @@ function removeForce(path) {
 
 parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
     jobDone) {
-  // TODO: helper.onError with console log messages
-
+  // TODO: rewrite without callback-hell antipattern
   // TODO: delete these folders
   temp.mkdir('uncompressTarGz',
       Meteor.bindEnvironment(function(err, workingDir) {
     if (err) {
-      console.elog("error creating working directory (uncompressTarGz):", err);
+      helpers.onError("Internal error: " +
+          "could not create working directory on server");
+      jobDone();
       return;
     }
 
@@ -54,7 +55,7 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
       });
       tar.on("close", Meteor.bindEnvironment(function (exitCode) {
         if (exitCode !== 0) {
-          console.log("error running tar job:", compressedFileName);
+          helpers.onError("Error while running tar job");
           jobDone();
         } else {
           // // remove compressed file
@@ -74,11 +75,8 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
               });
 
           // process each file
-          // var successfullyInserted = 0;
-          // var toInsertCount = fileNames.length;
           _.each(fileNames, function (newFileName) {
-            console.log("newFileName:", newFileName);
-            // insert: this kind of insert only works on the server
+            // NOTE: this kind of insert only works on the server
             var blobObject = Blobs.insert(path.join(workingDir, newFileName));
 
             // set some stuff about the new file
@@ -102,7 +100,7 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
             });
 
             Jobs.insert({
-              "name": "differentiateWranglerFile",
+              "name": "guessWranglerFileType",
               "date_created": new Date(),
               "args": {
                 "wrangler_file_id": wranglerFileId,

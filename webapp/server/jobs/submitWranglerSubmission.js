@@ -261,7 +261,20 @@ function processSubmission (submissionId) {
   setSubmissionStatus("done");
 }
 
-jobMethods.submitWranglerSubmission = function (args, jobDone) {
-  processSubmission(args.submission_id);
-  jobDone();
+jobMethods.submitWranglerSubmission = {
+  argumentSchema: new SimpleSchema({
+    "submission_id": { type: Meteor.ObjectID },
+  }),
+  onRun: function (args, jobDone) {
+    processSubmission(args.submission_id);
+    jobDone();
+  },
+  onError: function (args, errorDescription) {
+    WranglerSubmissions.update(args.submission_id, {
+      $set: {
+        "status": "error",
+        "errors": ["error running job: " + errorDescription],
+      }
+    });
+  },
 };

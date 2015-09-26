@@ -15,3 +15,11 @@ lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
     }))
     .on('end', callOnEnd);
 };
+
+firstPartOfLine = function (line) {
+  var firstPart = line.substring(0, 30);
+  if (firstPart !== line) {
+    firstPart = firstPart.substring(0, 27) + "...";
+  }
+  return firstPart;
+}

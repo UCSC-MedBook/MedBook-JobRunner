@@ -47,13 +47,7 @@ function isProgression(disgustingName) {
 }
 
 parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
-  try {
-    var vcf = Meteor.npmRequire('vcf.js');
-  } catch (e) {
-    console.log("we caught the error!! :)");
-    console.log("e:", e);
-  }
-    
+  var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
 
   var stream = fileObject.createReadStream("blobs")
@@ -61,7 +55,14 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
     blob += chunk;
   })
   .on('end', Meteor.bindEnvironment(function () {
-    var data = vcf.parser()(blob);
+    var data;
+    try {
+      data = vcf.parser()(blob);
+    } catch (e) {
+      helpers.onError(e.toString());
+      jobDone();
+      return;
+    }
 
     // TODO: pull from the sampleNames in the header
     // var possibleSampleLabel = record.__HEADER__.sampleNames[0];
