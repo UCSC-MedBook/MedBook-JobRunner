@@ -31,23 +31,21 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
     }
 
     console.log("workingDir:", workingDir);
-
     var compressedFileName = compressedFile.original.name;
     var compressedPath = path.join(workingDir, compressedFileName);
     var readStream = compressedFile.createReadStream('blobs');
     var writeStream = fs.createWriteStream(compressedPath);
 
     // write the compressed file to workingDir
-    readStream.on("data", function (chunk) {
-      writeStream.write(chunk);
-    });
-    readStream.on("end", Meteor.bindEnvironment(function () {
+    readStream.pipe(writeStream);
+    writeStream.on("finish", Meteor.bindEnvironment(function () {
       helpers.setFileStatus("processing");
 
       // note: don't care about stdout (files listed on stderr)
       var errorArray = [];
 
       // spawn a process to decompress the tar file
+      console.log("spawnning tar command");
       tar = spawn("tar", ["-zxvf", compressedFileName], { cwd: workingDir });
       tar.stderr.on("data", function (data) {
         // write all of that file to the errorArray
@@ -99,18 +97,24 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
               "uncompressed_from_id": compressedFile._id,
             });
 
-            Jobs.insert({
+            var guessId = Jobs.insert({
               "name": "guessWranglerFileType",
+              "user_id": compressedFile.metadata.user_id,
               "date_created": new Date(),
               "args": {
                 "wrangler_file_id": wranglerFileId,
               },
             });
 
-            // successfullyInserted++;
-            // if (successfullyInserted === toInsertCount) {
-            //
-            // }
+            Jobs.insert({
+              "name": "parseWranglerFile",
+              "user_id": compressedFile.metadata.user_id,
+              "date_created": new Date(),
+              "args": {
+                "wrangler_file_id": wranglerFileId,
+              },
+              "prerequisite_job_id": guessId,
+            });
           });
 
           helpers.setFileStatus("done");
