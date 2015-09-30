@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "binarysearch": {
-      "version": "0.2.4"
+    "binary-search": {
+      "version": "1.2.0"
     },
     "byline": {
       "version": "4.2.1"

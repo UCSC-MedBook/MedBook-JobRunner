@@ -14,22 +14,28 @@ jobMethods.parseWranglerFile = {
 
     var helpers = _.extend(options, {
       setFileStatus: Meteor.bindEnvironment(
-          function (statusString, errorDescription) {
+          (statusString, errorDescription) => {
         WranglerFiles.update(wranglerFile._id, {
           $set: {
-            "status": statusString,
-            "error_description": errorDescription,
+            status: statusString,
+            error_description: errorDescription,
           }
         });
       }),
-      documentInsert: function (collectionName, prospectiveDocument) {
+      documentInsert:
+          (submission_type, document_type, prospective_document) => {
+        if (prospective_document === undefined) {
+          console.log("prospective_document undefined");
+        }
+
         WranglerDocuments.insert(
           {
-            "submission_id": blobObject.metadata.submission_id,
-            "user_id": blobObject.metadata.user_id,
-            "collection_name": collectionName,
-            "prospective_document": prospectiveDocument,
-            "wrangler_file_id": wranglerFile._id,
+            submission_id: blobObject.metadata.submission_id,
+            user_id: blobObject.metadata.user_id,
+            submission_type,
+            document_type,
+            prospective_document,
+            wrangler_file_id: wranglerFile._id,
           },
           function (error, result) {
             if (error) {
@@ -59,12 +65,12 @@ jobMethods.parseWranglerFile = {
 
     // figure out the right method for parsing
     var parsingNameMappings = {
-      "mutation_vcf": "parseMutationVCF",
-      "superpathway_interactions": "parseSuperpathwayInteractions",
-      "superpathway_elements": "parseSuperpathwayElements",
-      "gene_expression": "parseGeneExpression",
-      "rectangular_gene_expression": "parseRectangularGeneExpression",
-      "compressed_tar_gz": "uncompressTarGz",
+      mutation_vcf: "parseMutationVCF",
+      superpathway_interactions: "parseSuperpathwayInteractions",
+      superpathway_elements: "parseSuperpathwayElements",
+      gene_expression: "parseGeneExpression",
+      rectangular_gene_expression: "parseRectangularGeneExpression",
+      compressed_tar_gz: "uncompressTarGz",
     };
     var parsingName = parsingNameMappings[options.file_type];
     if (parsingName && parsingFunctions[parsingName]) {

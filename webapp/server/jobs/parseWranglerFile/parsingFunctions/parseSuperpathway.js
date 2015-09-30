@@ -7,7 +7,7 @@ parsingFunctions.parseSuperpathwayInteractions = function(fileObject,
     if (!hadError) {
       var brokenTabs = line.split("\t");
       if (brokenTabs.length === 3) {
-        helpers.documentInsert("superpathway_interactions", {
+        helpers.documentInsert("superpathway", "superpathway_interactions", {
           "source": brokenTabs[0],
           "target": brokenTabs[2],
           "interaction": brokenTabs[1],
@@ -33,7 +33,7 @@ parsingFunctions.parseSuperpathwayElements = function(fileObject,
     if (!hadError) {
       var brokenTabs = line.split("\t");
       if (brokenTabs.length === 2) {
-        helpers.documentInsert("superpathway_elements", {
+        helpers.documentInsert("superpathway", "superpathway_elements", {
           "label": brokenTabs[1],
           "type": brokenTabs[0],
         });

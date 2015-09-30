@@ -2,5 +2,5 @@
   "byline": "4.2.1",
   "vcf.js": "0.2.0",
   "temp": "0.8.1",
-  "binarysearch": "0.2.4"
+  "binary-search": "1.2.0"
 }

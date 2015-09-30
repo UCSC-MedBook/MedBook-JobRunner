@@ -47,8 +47,13 @@ function isProgression(disgustingName) {
 }
 
 parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
+  console.log("about to do vcf.js");
+
   var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
+
+  console.log("after doing vcf.js");
+
 
   var stream = fileObject.createReadStream("blobs")
   .on('data', function (chunk) {
@@ -169,7 +174,7 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
           mutationDoc.gene_label === undefined) {
         // console.log("not adding low impact mutation...");
       } else {
-        helpers.documentInsert("mutations", mutationDoc);
+        helpers.documentInsert("mutation", "mutations", mutationDoc);
       }
     });
 
