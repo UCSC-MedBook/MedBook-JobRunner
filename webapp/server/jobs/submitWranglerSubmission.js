@@ -89,10 +89,13 @@ function processSubmission (submissionId) {
         "superpathway_interactions"
       ])) {
     submissionType = "superpathway";
-  }
-  else if (collectionNamesWithin(["gene_expression"])) {
+  } else if (collectionNamesWithin(["gene_expression"])) {
     submissionType = "gene_expression";
+  } else if (collectionNamesWithin(["rectangular_sample_labels"])) {
+    submissionType = "rectangular_gene_expression";
   }
+
+  // if we can't figure it out, throw it out
   if (!submissionType) {
     addSubmissionError("Mixed document types");
     return;
@@ -206,11 +209,33 @@ function processSubmission (submissionId) {
         ensureLabelExists(document.prospective_document.source);
         ensureLabelExists(document.prospective_document.target);
       });
-
-      if (foundProblem) {
-        return;
-      }
       break;
+    case "gene_expression":
+      // insert into expression2
+      WranglerDocuments.find({"submission_id": submissionId})
+          .forEach(function (object) {
+        var prospective = object.prospective_document;
+        // find the corresponding expression2 entry
+        var expression2Document = expression2.findOne({
+          gene: prospective.gene_label,
+          Study_ID: prospective.study_label,
+        }, {fields: {samples: 0}});
+        console.log("expression2Document:", expression2Document);
+        if (expression2Document) {
+          var setObject = {};
+          setObject["samples." +
+              prospective.sample_label + "." +
+              prospective.normalization] = prospective.value;
+
+          expression2.update(expression2Document._id, { $set: setObject });
+        } else {
+          console.log("couldn't find expression2 object for " + prospective.gene_label);
+        }
+      });
+  }
+
+  if (foundProblem) {
+    return;
   }
 
   // can't change it while it's writing to the database
@@ -245,6 +270,8 @@ function processSubmission (submissionId) {
       }, {multi: true});
       break;
   }
+
+  // if (submissionType === )
 
   // TODO: https://docs.mongodb.org/v3.0/tutorial/perform-two-phase-commits/
   WranglerDocuments.find({"submission_id": submissionId})
