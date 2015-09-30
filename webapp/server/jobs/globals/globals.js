@@ -14,6 +14,7 @@ lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
       lineIndex++;
     }))
     .on('end', callOnEnd);
+  return stream;
 };
 
 firstPartOfLine = function (line) {

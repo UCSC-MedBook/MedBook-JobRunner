@@ -35,7 +35,7 @@ parsingFunctions.parseGeneExpression = function(fileObject, helpers,
       } else {
         var brokenTabs = line.split("\t");
         if (brokenTabs.length === 2) {
-          helpers.documentInsert("gene_expression", {
+          helpers.documentInsert("gene_expression", "gene_expression", {
             "sample_label": sampleLabel,
             "normalization": helpers.normalization,
             "gene_label": brokenTabs[0],
