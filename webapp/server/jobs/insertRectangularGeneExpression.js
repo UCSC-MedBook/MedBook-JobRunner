@@ -3,6 +3,7 @@ jobMethods.insertRectangularGeneExpression = {
     wrangler_file_id: { type: Meteor.ObjectID },
   }),
   onRun: function (args, jobDone) {
+    console.log("args:", args);
     console.log("we haven't done this yet");
     jobDone();
   },

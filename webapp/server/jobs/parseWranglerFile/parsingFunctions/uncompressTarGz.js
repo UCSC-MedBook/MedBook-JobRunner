@@ -77,56 +77,58 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
           "-zxvf",
           compressedFileName
         ], { cwd: workingDir });
+        uncompress.on("close", Meteor.bindEnvironment(function (exitCode) {
+          // process each file
+          _.each(fileList, function (newFileName) {
+            console.log("newFileName:", newFileName);
+            // NOTE: this kind of insert only works on the server
+            var blobObject = Blobs.insert(path.join(workingDir, newFileName));
+            console.log("after creating blobObject");
 
-        // process each file
-        _.each(fileList, function (newFileName) {
-          console.log("newFileName:", newFileName);
-          // NOTE: this kind of insert only works on the server
-          var blobObject = Blobs.insert(path.join(workingDir, newFileName));
+            // set some stuff about the new file
+            blobObject.name(newFileName);
+            var submissionId = compressedFile.metadata.submission_id;
+            Blobs.update({_id: blobObject._id}, {
+              $set: {
+                "metadata.uncompressed_from_id": compressedFile._id,
+                "metadata.user_id": compressedFile.metadata.user_id,
+                "metadata.submission_id": submissionId,
+              }
+            });
 
-          // set some stuff about the new file
-          blobObject.name(newFileName);
-          var submissionId = compressedFile.metadata.submission_id;
-          Blobs.update({_id: blobObject._id}, {
-            $set: {
-              "metadata.uncompressed_from_id": compressedFile._id,
-              "metadata.user_id": compressedFile.metadata.user_id,
-              "metadata.submission_id": submissionId,
-            }
+            // put these new files into the submission
+            var wranglerFileId = WranglerFiles.insert({
+              "submission_id": submissionId,
+              "user_id": compressedFile.metadata.user_id,
+              "blob_id": blobObject._id,
+              "blob_name": newFileName,
+              "status": "saving",
+              "uncompressed_from_id": compressedFile._id,
+            });
+
+            var guessId = Jobs.insert({
+              "name": "guessWranglerFileType",
+              "user_id": compressedFile.metadata.user_id,
+              "date_created": new Date(),
+              "args": {
+                "wrangler_file_id": wranglerFileId,
+              },
+            });
+
+            Jobs.insert({
+              "name": "parseWranglerFile",
+              "user_id": compressedFile.metadata.user_id,
+              "date_created": new Date(),
+              "args": {
+                "wrangler_file_id": wranglerFileId,
+              },
+              "prerequisite_job_id": guessId,
+            });
           });
 
-          // put these new files into the submission
-          var wranglerFileId = WranglerFiles.insert({
-            "submission_id": submissionId,
-            "user_id": compressedFile.metadata.user_id,
-            "blob_id": blobObject._id,
-            "blob_name": newFileName,
-            "status": "saving",
-            "uncompressed_from_id": compressedFile._id,
-          });
-
-          var guessId = Jobs.insert({
-            "name": "guessWranglerFileType",
-            "user_id": compressedFile.metadata.user_id,
-            "date_created": new Date(),
-            "args": {
-              "wrangler_file_id": wranglerFileId,
-            },
-          });
-
-          Jobs.insert({
-            "name": "parseWranglerFile",
-            "user_id": compressedFile.metadata.user_id,
-            "date_created": new Date(),
-            "args": {
-              "wrangler_file_id": wranglerFileId,
-            },
-            "prerequisite_job_id": guessId,
-          });
-        });
-
-        helpers.setFileStatus("done");
-        jobDone();
+          helpers.setFileStatus("done");
+          jobDone();
+        }));
       }));
     }));
   }));
