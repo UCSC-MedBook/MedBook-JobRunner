@@ -41,87 +41,92 @@ parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
     writeStream.on("finish", Meteor.bindEnvironment(function () {
       helpers.setFileStatus("processing");
 
-      // note: don't care about stdout (files listed on stderr)
-      var errorArray = [];
+      // figure out what's inside
+      queryFiles = spawn("tar", [
+        "-tzf",
+        compressedFileName
+      ], { cwd: workingDir });
 
-      // spawn a process to decompress the tar file
-      console.log("spawnning tar command");
-      tar = spawn("tar", ["-zxvf", compressedFileName], { cwd: workingDir });
-      tar.stderr.on("data", function (data) {
-        // write all of that file to the errorArray
-        errorArray.push(data.toString());
+      // collect and read output
+      var aggregatedStdout = "";
+      queryFiles.stdout.on("data", function (chunk) {
+        aggregatedStdout += chunk;
       });
-      tar.on("close", Meteor.bindEnvironment(function (exitCode) {
+      queryFiles.on("close", Meteor.bindEnvironment(function (exitCode) {
         if (exitCode !== 0) {
-          helpers.onError("Error while running tar job");
+          helpers.onError("Error while querying tar file");
           jobDone();
-        } else {
-          // // remove compressed file
-          // removeForce(compressedPath);
+          return;
+        }
 
-          // filter so we don't get empty lines or folders (end with '/')
-          // then map over them to remove the "x " before each line
-          var fileNames = _.map(_.filter(errorArray.join("").split("\n"),
-                  function (consoleLine) {
-                var hiddenFileMatches = consoleLine.match(/\/\./g);
+        // make a list of files from the output
+        var fileList = _.filter(aggregatedStdout.split("\n"),
+            function (fileName) {
+          console.log("fileName:", fileName);
+          // don't want the folders, hidden files, or empty strings
+          return fileName.slice(-1) !== "/" &&
+              fileName.slice(0, 1) !== "." &&
+              !fileName.match(/\/\./) &&
+              fileName.length > 0;
+        });
+        console.log("fileList:", fileList);
 
-                return consoleLine.length > 0 &&
-                    consoleLine.slice(-1) !== "/" &&
-                    hiddenFileMatches === null;
-              }), function (consoleLine) {
-                return consoleLine.substring(2);
-              });
+        // uncompress tar file
+        console.log("spawning tar command");
+        uncompress = spawn("tar", [
+          "-zxvf",
+          compressedFileName
+        ], { cwd: workingDir });
 
-          // process each file
-          _.each(fileNames, function (newFileName) {
-            // NOTE: this kind of insert only works on the server
-            var blobObject = Blobs.insert(path.join(workingDir, newFileName));
+        // process each file
+        _.each(fileList, function (newFileName) {
+          console.log("newFileName:", newFileName);
+          // NOTE: this kind of insert only works on the server
+          var blobObject = Blobs.insert(path.join(workingDir, newFileName));
 
-            // set some stuff about the new file
-            blobObject.name(newFileName);
-            var submissionId = compressedFile.metadata.submission_id;
-            Blobs.update({_id: blobObject._id}, {
-              $set: {
-                "metadata.uncompressed_from_id": compressedFile._id,
-                "metadata.user_id": compressedFile.metadata.user_id,
-                "metadata.submission_id": submissionId,
-              }
-            });
-
-            var wranglerFileId = WranglerFiles.insert({
-              "submission_id": submissionId,
-              "user_id": compressedFile.metadata.user_id,
-              "blob_id": blobObject._id,
-              "blob_name": newFileName,
-              "status": "saving",
-              "uncompressed_from_id": compressedFile._id,
-            });
-
-            var guessId = Jobs.insert({
-              "name": "guessWranglerFileType",
-              "user_id": compressedFile.metadata.user_id,
-              "date_created": new Date(),
-              "args": {
-                "wrangler_file_id": wranglerFileId,
-              },
-            });
-
-            Jobs.insert({
-              "name": "parseWranglerFile",
-              "user_id": compressedFile.metadata.user_id,
-              "date_created": new Date(),
-              "args": {
-                "wrangler_file_id": wranglerFileId,
-              },
-              "prerequisite_job_id": guessId,
-            });
+          // set some stuff about the new file
+          blobObject.name(newFileName);
+          var submissionId = compressedFile.metadata.submission_id;
+          Blobs.update({_id: blobObject._id}, {
+            $set: {
+              "metadata.uncompressed_from_id": compressedFile._id,
+              "metadata.user_id": compressedFile.metadata.user_id,
+              "metadata.submission_id": submissionId,
+            }
           });
 
-          helpers.setFileStatus("done");
-          jobDone();
+          // put these new files into the submission
+          var wranglerFileId = WranglerFiles.insert({
+            "submission_id": submissionId,
+            "user_id": compressedFile.metadata.user_id,
+            "blob_id": blobObject._id,
+            "blob_name": newFileName,
+            "status": "saving",
+            "uncompressed_from_id": compressedFile._id,
+          });
 
-          // TODO: remove the compressed file from the submission?
-        }
+          var guessId = Jobs.insert({
+            "name": "guessWranglerFileType",
+            "user_id": compressedFile.metadata.user_id,
+            "date_created": new Date(),
+            "args": {
+              "wrangler_file_id": wranglerFileId,
+            },
+          });
+
+          Jobs.insert({
+            "name": "parseWranglerFile",
+            "user_id": compressedFile.metadata.user_id,
+            "date_created": new Date(),
+            "args": {
+              "wrangler_file_id": wranglerFileId,
+            },
+            "prerequisite_job_id": guessId,
+          });
+        });
+
+        helpers.setFileStatus("done");
+        jobDone();
       }));
     }));
   }));
