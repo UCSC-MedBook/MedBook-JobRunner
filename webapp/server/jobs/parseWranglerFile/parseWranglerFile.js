@@ -14,7 +14,7 @@ jobMethods.parseWranglerFile = {
 
     var helpers = _.extend(options, {
       setFileStatus: Meteor.bindEnvironment(
-          (statusString, errorDescription) => {
+          function (statusString, errorDescription) {
         WranglerFiles.update(wranglerFile._id, {
           $set: {
             status: statusString,
@@ -23,7 +23,7 @@ jobMethods.parseWranglerFile = {
         });
       }),
       documentInsert:
-          (submission_type, document_type, prospective_document) => {
+          function (submission_type, document_type, prospective_document) {
         if (prospective_document === undefined) {
           console.log("prospective_document undefined");
         }
@@ -32,9 +32,9 @@ jobMethods.parseWranglerFile = {
           {
             submission_id: blobObject.metadata.submission_id,
             user_id: blobObject.metadata.user_id,
-            submission_type,
-            document_type,
-            prospective_document,
+            submission_type: submission_type,
+            document_type: document_type,
+            prospective_document: prospective_document,
             wrangler_file_id: wranglerFile._id,
           },
           function (error, result) {

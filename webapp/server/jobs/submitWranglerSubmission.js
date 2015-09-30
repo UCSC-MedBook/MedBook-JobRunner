@@ -1,19 +1,19 @@
 // TODO: get rid of all of these case statements
 
-let npmBinarySearch = Meteor.npmRequire('binary-search');
+var npmBinarySearch = Meteor.npmRequire('binary-search');
 
 function processSubmission (submission_id) {
-  let options = WranglerSubmissions.findOne(submission_id).options;
+  var options = WranglerSubmissions.findOne(submission_id).options;
   console.log("options:", options);
 
   // before we begin...
-  let binarysearch = (array, item) => {
-    return npmBinarySearch(array, item, (a, b) => { return a > b; });
+  var binarysearch = function (array, item) {
+    return npmBinarySearch(array, item, function (a, b) { return a > b; });
   };
 
   // remove all previous submission errors
   WranglerSubmissions.update(submission_id, { $set: { "errors": [] } });
-  let errorCount = 0; // increased with addSubmissionError
+  var errorCount = 0; // increased with addSubmissionError
 
   // define helpers
   function setSubmissionStatus (newStatus) {
@@ -23,8 +23,8 @@ function processSubmission (submission_id) {
   }
   function documentCursor (document_type) {
     return WranglerDocuments.find({
-      submission_id,
-      document_type,
+      submission_id: submission_id,
+      document_type: document_type,
     });
   }
   function documentCount (collectionName) {
@@ -56,16 +56,16 @@ function processSubmission (submission_id) {
   }
 
   // make sure there are some documents
-  let totalCount = WranglerDocuments
-      .find({submission_id})
+  var totalCount = WranglerDocuments
+      .find({submission_id: submission_id})
       .count();
   if (totalCount === 0) {
     addSubmissionError("No documents present");
     return;
   }
 
-  let distinctDocumentTypes = _.uniq(_.pluck(WranglerDocuments.find({
-        submission_id
+  var distinctDocumentTypes = _.uniq(_.pluck(WranglerDocuments.find({
+        submission_id: submission_id
       }, {
         sort: { "document_type": 1 },
         fields: { "document_type": true },
@@ -85,7 +85,7 @@ function processSubmission (submission_id) {
   }
 
   // figure out the submission type
-  let submissionType;
+  var submissionType;
   if (collectionNamesWithin(["mutations"])) {
     submissionType = "mutation";
   } else if (collectionNamesWithin([
@@ -106,16 +106,16 @@ function processSubmission (submission_id) {
   }
 
   // modify generically before validation
-  let needStudyAndCollaboration = [
+  var needStudyAndCollaboration = [
     "mutations",
     "gene_expression",
   ];
   console.log("distinctDocumentTypes:", distinctDocumentTypes);
-  _.each(distinctDocumentTypes, (document_type) => {
+  _.each(distinctDocumentTypes, function (document_type) {
     if (needStudyAndCollaboration.indexOf(document_type) > -1) {
       WranglerDocuments.update({
-        submission_id,
-        document_type,
+        submission_id: submission_id,
+        document_type: document_type,
       }, {
         $set: {
           "prospective_document.study_label": options.study_label,
@@ -129,7 +129,7 @@ function processSubmission (submission_id) {
   switch (submissionType) {
     case "mutation":
       WranglerDocuments.update({
-        submission_id,
+        submission_id: submission_id,
         "document_type": "mutations",
       }, {
         $set: {
@@ -142,7 +142,7 @@ function processSubmission (submission_id) {
       break;
     case "superpathway":
       WranglerDocuments.update({
-        submission_id,
+        submission_id: submission_id,
         "document_type": {
           $in: [
             "superpathway_elements",
@@ -159,7 +159,7 @@ function processSubmission (submission_id) {
   }
 
   // validate all objects using their relative schemas
-  let contextCache = {};
+  var contextCache = {};
   function getContext(collectionName) {
     if (!contextCache[collectionName]) {
       contextCache[collectionName] = getCollectionByName(collectionName)
@@ -169,9 +169,9 @@ function processSubmission (submission_id) {
     return contextCache[collectionName];
   }
   errorCount = 0; // defined above
-  WranglerDocuments.find({submission_id})
+  WranglerDocuments.find({submission_id: submission_id})
       .forEach(function (object) {
-    let context = getContext(object.document_type);
+    var context = getContext(object.document_type);
     if (context.validate(object.prospective_document)) {
       // console.log("we all good");
     } else {
@@ -198,8 +198,8 @@ function processSubmission (submission_id) {
       }
 
       // make sure each element label is unique
-      let foundProblem = false;
-      let elementLabels = documentCursor("superpathway_elements")
+      var foundProblem = false;
+      var elementLabels = documentCursor("superpathway_elements")
           .map(function (document) {
             return document.prospective_document.label;
           });
@@ -218,7 +218,7 @@ function processSubmission (submission_id) {
         console.log("label:", label);
         console.log("binarysearch(elementLabels, label):", binarysearch(elementLabels, label));
         if (binarysearch(elementLabels, label) < 0) {
-          addSubmissionError(`${label} used in interactions without a` +
+          addSubmissionError(label + " used in interactions without a" +
               " corresponding entry in elements");
           foundProblem = true;
         }
@@ -230,9 +230,9 @@ function processSubmission (submission_id) {
       });
 
       // make sure labels defined in elements are used in interactions
-      _.each(elementLabels, (label) => {
+      _.each(elementLabels, function (label) {
         var interaction = WranglerDocuments.findOne({
-          submission_id,
+          submission_id: submission_id,
           document_type: "superpathway_interactions",
           $or: [
             {"prospective_document.source": label},
@@ -241,24 +241,24 @@ function processSubmission (submission_id) {
         });
         if (!interaction) {
           addSubmissionError(
-              `${label} defined but not used in any interactions`);
+              label + " defined but not used in any interactions");
           foundProblem = true;
         }
       });
       break;
     case "gene_expression":
       // insert into expression2
-      WranglerDocuments.find({submission_id})
+      WranglerDocuments.find({submission_id: submission_id})
           .forEach(function (object) {
-        let prospective = object.prospective_document;
+        var prospective = object.prospective_document;
         // find the corresponding expression2 entry
-        let expression2Document = expression2.findOne({
+        var expression2Document = expression2.findOne({
           gene: prospective.gene_label,
           Study_ID: prospective.study_label,
         }, {fields: {samples: 0}});
         console.log("expression2Document:", expression2Document);
         if (expression2Document) {
-          let setObject = {};
+          var setObject = {};
           setObject["samples." +
               prospective.sample_label + "." +
               prospective.normalization] = prospective.value;
@@ -280,21 +280,21 @@ function processSubmission (submission_id) {
   // modify after validation
   switch (submissionType) {
     case "superpathway":
-      let version = 1;
-      let oldOne = Superpathways.findOne({"name": options.name},
+      var version = 1;
+      var oldOne = Superpathways.findOne({"name": options.name},
           { sort: { version: -1 } });
       if (oldOne) {
         version = oldOne.version + 1;
       }
-      let superpathwayId = Superpathways.insert({
-        "name": options.name,
-        version,
-        "study_label": options.study_label,
-        "collaboration_label": options.collaboration_label,
+      var superpathwayId = Superpathways.insert({
+        name: options.name,
+        version: version,
+        study_label: options.study_label,
+        collaboration_label: options.collaboration_label,
       });
 
       WranglerDocuments.update({
-        submission_id,
+        submission_id: submission_id,
         "document_type": {
           $in: [
             "superpathway_elements",
@@ -312,7 +312,7 @@ function processSubmission (submission_id) {
   // if (submissionType === )
 
   // TODO: https://docs.mongodb.org/v3.0/tutorial/perform-two-phase-commits/
-  WranglerDocuments.find({submission_id})
+  WranglerDocuments.find({submission_id: submission_id})
       .forEach(function (currentDocument) {
     getCollectionByName(currentDocument.document_type)
         .insert(currentDocument.prospective_document);
