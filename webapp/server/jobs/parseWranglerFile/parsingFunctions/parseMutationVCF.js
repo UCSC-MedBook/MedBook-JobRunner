@@ -115,7 +115,7 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
                   var effectArray = split[1]
                       .substring(0, split[1].length - 1) // remove trailing ')'
                       .split("|");
-				  console.log('eff array ', effectArray);
+                  // console.log('eff array ', effectArray);
                   var effectAttributes = [
                     "Effect_Impact",
                     "Functional_Class",
@@ -138,17 +138,17 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
                         effectArray[attributeIndex];
                   }
                   setHighLevel(mutationDoc, "gene_label", effects.Gene_Name);
-				  setHighLevel(mutationDoc, "protein_change", effects.Amino_Acid_change);
+                  setHighLevel(mutationDoc, "protein_change", effects.Amino_Acid_change);
                   setHighLevel(mutationDoc, "effect_impact", effects.Effect_Impact);
-				  setHighLevel(mutationDoc, "functional_class", effects.Functional_Class);
-				  setHighLevel(mutationDoc, "genotype", effects.GenometypeNum);
+                  setHighLevel(mutationDoc, "functional_class", effects.Functional_Class);
+                  setHighLevel(mutationDoc, "genotype", effects.GenometypeNum);
                   // console.log("effects:", effects);
 
                 }
               } else if (infoKey === "TYPE") {
                 setHighLevel(mutationDoc, "mutation_type", infoValue);
-			  } else if (infoKey === "DP") {
-				setHighLevel(mutationDoc, "read_depth", infoValue);
+              } else if (infoKey === "DP") {
+                setHighLevel(mutationDoc, "read_depth", infoValue);
               } else {
                 // console.log("unknown key in INFO:", infoKey);
               }
