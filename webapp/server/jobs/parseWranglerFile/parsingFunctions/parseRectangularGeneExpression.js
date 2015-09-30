@@ -15,10 +15,10 @@ parsingFunctions.parseRectangularGeneExpression =
       if (tabCount === undefined) {
         tabCount = brokenTabs.length;
       } else if (tabCount !== brokenTabs.length) {
+        noErrors = false;
         helpers.onError("File not rectangular. " +
             "Line " + (lineIndex + 1) + " has " + brokenTabs.length +
             " columns, not " + tabCount);
-        noErrors = false;
       }
 
       if (lineIndex === 0) { // headerline (has sample labels)
@@ -27,8 +27,16 @@ parsingFunctions.parseRectangularGeneExpression =
           if (index % 100 === 0) {
             console.log("sample_label index:", index);
           }
-          helpers.documentInsert("rectangular_gene_expression",
-              "sample_label", { sample_label: sample_label, });
+
+          // check to see if there is a dot in the sample_label
+          if (sample_label.indexOf(".") > -1) {
+            noErrors = false;
+            console.log("sample_label has dot:", sample_label);
+            helpers.onError("Sample label has dot: " + sample_label);
+          } else {
+            helpers.documentInsert("rectangular_gene_expression",
+                "sample_label", { sample_label: sample_label, });
+          }
         });
       } else { // rest of file (not header line)
         var gene_label = brokenTabs[0];

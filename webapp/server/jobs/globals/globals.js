@@ -12,8 +12,10 @@ lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
       var line = lineObject.toString();
       callWithLine(line, lineIndex);
       lineIndex++;
-    }))
-    .on('end', callOnEnd);
+    }));
+  if (callOnEnd) {
+    stream.on('end', callOnEnd);
+  }
   return stream;
 };
 
@@ -23,4 +25,4 @@ firstPartOfLine = function (line) {
     firstPart = firstPart.substring(0, 27) + "...";
   }
   return firstPart;
-}
+};
