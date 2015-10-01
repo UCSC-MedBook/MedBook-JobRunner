@@ -47,14 +47,7 @@ function isProgression(disgustingName) {
 }
 
 parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
-  console.log("about to do vcf.js");
-
-  var vcf = Meteor.npmRequire('vcf.js');
   var blob = "";
-
-  console.log("after doing vcf.js");
-
-
   var stream = fileObject.createReadStream("blobs")
   .on('data', function (chunk) {
     blob += chunk;
@@ -62,7 +55,7 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
   .on('end', Meteor.bindEnvironment(function () {
     var data;
     try {
-      data = vcf.parser()(blob);
+      data = ParseVCF()(blob);
     } catch (e) {
       helpers.onError(e.toString());
       jobDone();
@@ -85,8 +78,8 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
       sampleLabel += "Pro";
     }
 
-
-    _.mapObject(data.records, function (record) {
+    for (let recordIndex in data.records) {
+      let record = data.records[recordIndex];
 
       var mutationDoc = {
         "sample_label": sampleLabel,
@@ -99,12 +92,15 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
         "POS": "start_position",
       };
 
-      _.mapObject(record, function (value, key) {
+      for (let key in record) {
+        let value = record[key];
+
         if (directMappings[key] !== undefined) {
           mutationDoc[directMappings[key]] = value;
         } else {
           if (key === "INFO") {
-            _.mapObject(value, function (infoValue, infoKey) {
+            for (let infoKey in value) {
+              let infoValue = value[infoKey];
               if (infoKey === "EFF") {
                 var effArray = infoValue.split(",");
                 for (var effectIndex in effArray) {
@@ -152,12 +148,12 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
               } else {
                 // console.log("unknown key in INFO:", infoKey);
               }
-            });
+            }
           } else {
             // console.log("unknown attribute:", attribute);
           }
         }
-      });
+      }
 
       /*
       ** get things from other places if not set already
@@ -179,7 +175,7 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
       } else {
         helpers.documentInsert("mutation", "mutations", mutationDoc);
       }
-    });
+    }
 
     helpers.setFileStatus("done");
     jobDone();

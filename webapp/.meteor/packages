@@ -12,5 +12,5 @@ medbook:primary-collections
 medbook:wrangler-collections
 meteorhacks:npm
 
-
 npm-container
+medbook:parse-vcf

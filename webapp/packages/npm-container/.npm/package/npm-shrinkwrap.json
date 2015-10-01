@@ -13,14 +13,6 @@
           "version": "2.2.8"
         }
       }
-    },
-    "vcf.js": {
-      "version": "0.2.0",
-      "dependencies": {
-        "underscore": {
-          "version": "1.8.3"
-        }
-      }
     }
   }
 }
