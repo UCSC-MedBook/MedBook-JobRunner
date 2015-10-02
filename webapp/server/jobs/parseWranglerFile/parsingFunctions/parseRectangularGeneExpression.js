@@ -35,6 +35,10 @@ parsingFunctions.parseRectangularGeneExpression =
           }
         });
       } else { // rest of file (not header line)
+        if (lineIndex % 1000 === 0) {
+          console.log("lineIndex:", lineIndex);
+        }
+
         var gene_label = brokenTabs[0];
         helpers.documentInsert("rectangular_gene_expression", "gene_label", {
           gene_label: gene_label,
