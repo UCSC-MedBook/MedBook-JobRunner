@@ -20,9 +20,10 @@ lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
 };
 
 firstPartOfLine = function (line) {
-  var firstPart = line.substring(0, 30);
+  let maxLength = 50;
+  let firstPart = line.substring(0, maxLength);
   if (firstPart !== line) {
-    firstPart = firstPart.substring(0, 27) + "...";
+    firstPart = firstPart.substring(0, maxLength - 3) + "...";
   }
   return firstPart;
 };

@@ -78,10 +78,12 @@ jobMethods.guessWranglerFileType = {
         "normalization": "fpkm",
       });
     } else { // couldn't guess the file type anything :(
+      let error_description = "Unable to guess file type. " +
+          "Click here to set file type manually.";
       WranglerFiles.update(args.wrangler_file_id, {
         $set: {
           "status": "error",
-          "error_description": "Error: unable to guess file type",
+          error_description,
           "options.file_type": "error",
         }
       });
@@ -89,11 +91,14 @@ jobMethods.guessWranglerFileType = {
 
     jobDone();
   },
-  onError: function (args, errorDescription) {
+  onError: function (args, error_description) {
+    error_description = "Internal error running job: " +
+        firstPartOfLine(error_description);
+    
     WranglerFiles.update(args.wrangler_file_id, {
       $set: {
         "status": "error",
-        "error_description": "error running job: " + errorDescription,
+        error_description,
       }
     });
   }
