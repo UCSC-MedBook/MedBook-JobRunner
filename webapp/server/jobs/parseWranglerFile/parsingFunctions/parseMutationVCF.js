@@ -55,7 +55,7 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
   .on('end', Meteor.bindEnvironment(function () {
     var data;
     try {
-      data = ParseVCF()(blob);
+      data = ParseVCF(blob);
     } catch (e) {
       helpers.onError(e.toString());
       jobDone();

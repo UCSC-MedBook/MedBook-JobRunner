@@ -110,7 +110,7 @@ function runNextJob () {
       }
     } catch (e) {
       return jobDone({
-        error: "internal server error [" + e.toString() + "]",
+        error: "Internal server error [" + e.toString() + "]",
         rerun: true,
       });
     }
