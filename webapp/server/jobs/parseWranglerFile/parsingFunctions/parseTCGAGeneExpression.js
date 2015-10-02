@@ -1,4 +1,4 @@
-parsingFunctions.parseRectangularGeneExpression =
+parsingFunctions.parseTCGAGeneExpression =
     function (fileObject, helpers, jobDone) {
   var noErrors = true;
   var tabCount;
@@ -34,11 +34,18 @@ parsingFunctions.parseRectangularGeneExpression =
                 "sample_label", { sample_label: sample_label, });
           }
         });
-      } else { // rest of file (not header line)
-        var gene_label = brokenTabs[0];
-        helpers.documentInsert("rectangular_gene_expression", "gene_label", {
-          gene_label: gene_label,
-        });
+      } else if (lineIndex === 1) { // "gene_id  normalized_count  ..."
+        // don't do anything ;)
+      } else { // rest of file (not header lines)
+        // different variable because we might want that number
+        var labelAndNumber = brokenTabs[0].split("|");
+        var gene_label = labelAndNumber[0];
+
+        if (gene_label !== "?") {
+          helpers.documentInsert("rectangular_gene_expression", "gene_label", {
+            gene_label,
+          });
+        }
       }
     }
   }, function () {

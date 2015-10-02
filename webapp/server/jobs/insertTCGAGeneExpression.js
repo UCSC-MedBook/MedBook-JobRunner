@@ -15,10 +15,12 @@ jobMethods.insertRectangularGeneExpression = {
       var brokenTabs = line.split("\t");
       if (lineIndex === 0) { // headerline
         sampleLabels = brokenTabs;
+      } else if (lineIndex === 1) { // the line with useless info
+        // nothing :)
       } else {
         var selector = {
           Study_ID: submission.options.study_label,
-          gene: brokenTabs[0],
+          gene: brokenTabs[0].split("|")[0],
           Collaborations: [submission.options.collaboration_label],
         };
 
@@ -31,25 +33,31 @@ jobMethods.insertRectangularGeneExpression = {
         }
 
         // add the new data to newSamples
-        _.each(brokenTabs, function (value, index) {
+        _.each(brokenTabs, function (currentTab, index) {
           if (index !== 0) { // ignore first column
             if (newSamples[sampleLabels[index]] === undefined) {
               newSamples[sampleLabels[index]] = {};
             }
-            newSamples[sampleLabels[index]][normalization] =
-                parseInt(brokenTabs[index], 10);
+            var value = Math.log(parseInt(currentTab, 10) + 1) / Math.log(2);
+            console.log("value:", value);
+            newSamples[sampleLabels[index]].rsem_quan_log2 = value;
           }
         });
+
+        console.log("newSamples:", newSamples);
 
         var modifier = {
           samples: newSamples,
         };
 
         if (existing) {
-          expression2.update(existing._id, {
+          console.log("update:", existing._id);
+          var returnValue = expression2.update(existing._id, {
             $set: modifier
           });
+          console.log("returnValue:", returnValue);
         } else {
+          console.log("insert");
           _.extend(modifier, selector);
           expression2.insert(modifier);
         }

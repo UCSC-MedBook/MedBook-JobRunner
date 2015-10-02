@@ -318,8 +318,10 @@ function processSubmission (args, jobDone) {
 
     setSubmissionStatus("done");
   } else {
+    setSubmissionStatus("writing");
+    var prerequisite_job_id;
     if (submissionType === "rectangular_gene_expression") {
-      var prerequisite_job_id;
+
       WranglerFiles.find({submission_id: submission_id})
           .forEach(function (wranglerFile) {
         prerequisite_job_id = Jobs.insert({
@@ -332,17 +334,30 @@ function processSubmission (args, jobDone) {
           prerequisite_job_id: prerequisite_job_id,
         });
       });
-
-      Jobs.insert({
-        name: "setSubmissionAsFinished",
-        user_id: submissionObject.user_id,
-        date_created: new Date(),
-        args: {
-          submission_id: submission_id,
-        },
-        prerequisite_job_id: prerequisite_job_id,
+    } else if (submissionType === "tcga_gene_expression") {
+      WranglerFiles.find({submission_id: submission_id})
+          .forEach(function (wranglerFile) {
+        prerequisite_job_id = Jobs.insert({
+          name: "insertTCGAGeneExpression",
+          user_id: submissionObject.user_id,
+          date_created: new Date(),
+          args: {
+            wrangler_file_id: wranglerFile._id,
+          },
+          prerequisite_job_id: prerequisite_job_id,
+        });
       });
     }
+
+    Jobs.insert({
+      name: "setSubmissionAsFinished",
+      user_id: submissionObject.user_id,
+      date_created: new Date(),
+      args: {
+        submission_id: submission_id,
+      },
+      prerequisite_job_id: prerequisite_job_id,
+    });
   }
   jobDone();
 }

@@ -70,13 +70,14 @@ jobMethods.parseWranglerFile = {
       superpathway_elements: "parseSuperpathwayElements",
       gene_expression: "parseGeneExpression",
       rectangular_gene_expression: "parseRectangularGeneExpression",
+      tcga_gene_expression: "parseTCGAGeneExpression",
       compressed_tar_gz: "uncompressTarGz",
     };
     var parsingName = parsingNameMappings[options.file_type];
     if (parsingName && parsingFunctions[parsingName]) {
       parsingFunctions[parsingName](blobObject, helpers, jobDone);
     } else {
-      helpers.onError("internal error: parsing name or function not defined");
+      helpers.onError("Internal error: parsing name or function not defined");
       jobDone();
     }
   },
