@@ -1,4 +1,4 @@
-parsingFunctions.parseGeneExpression = function(fileObject, helpers,
+parsingFunctions.parseBD2KGeneExpression = function(fileObject, helpers,
     jobDone) {
   var noErrors = true;
 

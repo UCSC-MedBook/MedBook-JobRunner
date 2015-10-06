@@ -110,8 +110,8 @@ function processSubmission (args, jobDone) {
           document_type: document_type,
         }, {
           $set: {
-            "prospective_document.study_label": options.study_label,
-            "prospective_document.collaboration_label": options.collaboration_label,
+            "contents.study_label": options.study_label,
+            "contents.collaboration_label": options.collaboration_label,
           }
         }, { multi: true });
       }
@@ -126,8 +126,8 @@ function processSubmission (args, jobDone) {
         }, {
           $set: {
             // TODO: ensure that these options are here
-            "prospective_document.biological_source": options.biological_source,
-            "prospective_document.mutation_impact_assessor":
+            "contents.biological_source": options.biological_source,
+            "contents.mutation_impact_assessor":
                 options.mutation_impact_assessor,
           }
         }, {multi: true});
@@ -144,7 +144,7 @@ function processSubmission (args, jobDone) {
         }, {
           $set: {
             // so that it is valid according to the schema
-            "prospective_document.superpathway_id": "soon_to_be_created!",
+            "contents.superpathway_id": "soon_to_be_created!",
           }
         }, {multi: true});
         break;
@@ -164,13 +164,13 @@ function processSubmission (args, jobDone) {
     WranglerDocuments.find({submission_id: submission_id})
         .forEach(function (object) {
       var context = getContext(object.document_type);
-      if (context.validate(object.prospective_document)) {
+      if (context.validate(object.contents)) {
         // console.log("we all good");
       } else {
         errorCount++;
         addSubmissionError("Invalid document present");
         console.log("context.invalidKeys():", context.invalidKeys());
-        console.log("object.prospective_document:", object.prospective_document);
+        console.log("object.contents:", object.contents);
       }
     });
     if (errorCount > 0) {
@@ -195,7 +195,7 @@ function processSubmission (args, jobDone) {
         var foundProblem = false;
         var elementLabels = documentCursor("superpathway_elements")
             .map(function (document) {
-              return document.prospective_document.label;
+              return document.contents.label;
             });
         elementLabels.sort();
         _.each(elementLabels.slice(1), function (label, index) {
@@ -219,8 +219,8 @@ function processSubmission (args, jobDone) {
         };
         documentCursor("superpathway_interactions")
             .forEach(function (document) {
-          ensureLabelExists(document.prospective_document.source);
-          ensureLabelExists(document.prospective_document.target);
+          ensureLabelExists(document.contents.source);
+          ensureLabelExists(document.contents.target);
         });
 
         // make sure labels defined in elements are used in interactions
@@ -229,8 +229,8 @@ function processSubmission (args, jobDone) {
             submission_id: submission_id,
             document_type: "superpathway_interactions",
             $or: [
-              {"prospective_document.source": label},
-              {"prospective_document.target": label},
+              {"contents.source": label},
+              {"contents.target": label},
             ],
           });
           if (!interaction) {
@@ -244,13 +244,13 @@ function processSubmission (args, jobDone) {
         // insert into expression2
         WranglerDocuments.find({submission_id: submission_id})
             .forEach(function (object) {
-          var prospective = object.prospective_document;
+          var prospective = object.contents;
           // find the corresponding expression2 entry
           var expression2Document = expression2.findOne({
             gene: prospective.gene_label,
             Study_ID: prospective.study_label,
           }, {fields: {samples: 0}});
-          console.log("expression2Document:", expression2Document);
+
           if (expression2Document) {
             var setObject = {};
             setObject["samples." +
@@ -298,7 +298,7 @@ function processSubmission (args, jobDone) {
           },
         }, {
           $set: {
-            "prospective_document.superpathway_id": superpathwayId,
+            "contents.superpathway_id": superpathwayId,
           }
         }, {multi: true});
         break;
@@ -308,7 +308,7 @@ function processSubmission (args, jobDone) {
     WranglerDocuments.find({submission_id: submission_id})
         .forEach(function (currentDocument) {
       getCollectionByName(currentDocument.document_type)
-          .insert(currentDocument.prospective_document);
+          .insert(currentDocument.contents);
       WranglerDocuments.update(currentDocument, {
         $set: {
           "inserted_into_database": true

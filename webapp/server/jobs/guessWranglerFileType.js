@@ -49,32 +49,32 @@ jobMethods.guessWranglerFileType = {
 
     // TODO: pull from manual_file_type if possible
     if (extensionEquals(".sif")) {
-      setFileOptions({ "file_type": "superpathway_interactions" });
+      setFileOptions({ "file_type": "SuperpathwayInteractions" });
     } else if (extensionEquals(".tab") &&
         blobName.indexOf("definitions") > -1) {
-      setFileOptions({ "file_type": "superpathway_elements" });
+      setFileOptions({ "file_type": "SuperpathwayElements" });
     } else if (extensionEquals(".vcf")) {
-      setFileOptions({ "file_type": "mutation_vcf" });
+      setFileOptions({ "file_type": "MutationVCF" });
     } else if (extensionEquals(".tar.gz")) {
-      setFileOptions({ "file_type": "compressed_tar_gz" });
+      setFileOptions({ "file_type": "CompressedTarGz" });
     } else if (extensionEquals(".rsem.genes.raw_counts.tab")) {
       setFileOptions({
-        "file_type": "gene_expression",
+        "file_type": "BD2KGeneExpression",
         "normalization": "raw_counts",
       });
     } else if (extensionEquals(".rsem.genes.norm_counts.tab")) {
       setFileOptions({
-        "file_type": "gene_expression",
+        "file_type": "BD2KGeneExpression",
         "normalization": "counts",
       });
     } else if (extensionEquals(".rsem.genes.norm_tpm.tab")) {
       setFileOptions({
-        "file_type": "gene_expression",
+        "file_type": "BD2KGeneExpression",
         "normalization": "tpm",
       });
     } else if (extensionEquals(".rsem.genes.norm_fpkm.tab")) {
       setFileOptions({
-        "file_type": "gene_expression",
+        "file_type": "BD2KGeneExpression",
         "normalization": "fpkm",
       });
     } else { // couldn't guess the file type anything :(
@@ -94,7 +94,7 @@ jobMethods.guessWranglerFileType = {
   onError: function (args, error_description) {
     error_description = "Internal error running job: " +
         firstPartOfLine(error_description);
-    
+
     WranglerFiles.update(args.wrangler_file_id, {
       $set: {
         "status": "error",

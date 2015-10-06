@@ -19,6 +19,43 @@ lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
   return stream;
 };
 
+// specifically for parsing tab-seperated files
+rectangularFileStream = function (fileObject, helpers, callWithBrokenTabs) {
+  var noErrors = true;
+  var tabCount;
+
+  var oldOnError = helpers.onError;
+  helpers.onError = function () {
+    noErrors = false;
+    oldOnError();
+  };
+
+  lineByLineStream(fileObject, function (line, lineIndex) {
+    if (noErrors) {
+      var brokenTabs = line.split("\t");
+
+      // make sure file is rectangular
+      if (tabCount === undefined) {
+        tabCount = brokenTabs.length;
+      } else if (tabCount !== brokenTabs.length) {
+        noErrors = false;
+        helpers.onError("File not rectangular. " +
+            "Line " + (lineIndex + 1) + " has " + brokenTabs.length +
+            " columns, not " + tabCount);
+      }
+
+      callWithBrokenTabs(brokenTabs, lineIndex, line);
+    }
+  }, function () {
+    if (noErrors) {
+      helpers.setFileStatus("done");
+    }
+    jobDone(); // TODO: figure out a better place for this
+  });
+};
+
+// gets the first part of a string, adds "..." at the end if greater than 50
+// characters long
 firstPartOfLine = function (line) {
   let maxLength = 50;
   let firstPart = line.substring(0, maxLength);

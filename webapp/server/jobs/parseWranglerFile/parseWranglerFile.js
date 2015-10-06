@@ -23,9 +23,9 @@ jobMethods.parseWranglerFile = {
         });
       }),
       documentInsert:
-          function (submission_type, document_type, prospective_document) {
-        if (prospective_document === undefined) {
-          console.log("prospective_document undefined");
+          function (submission_type, document_type, contents) {
+        if (contents === undefined) {
+          console.log("contents undefined");
         }
 
         WranglerDocuments.insert(
@@ -34,7 +34,7 @@ jobMethods.parseWranglerFile = {
             user_id: blobObject.metadata.user_id,
             submission_type: submission_type,
             document_type: document_type,
-            prospective_document: prospective_document,
+            contents: contents,
             wrangler_file_id: wranglerFile._id,
           },
           function (error, result) {
@@ -64,16 +64,8 @@ jobMethods.parseWranglerFile = {
     }
 
     // figure out the right method for parsing
-    var parsingNameMappings = {
-      mutation_vcf: "parseMutationVCF",
-      superpathway_interactions: "parseSuperpathwayInteractions",
-      superpathway_elements: "parseSuperpathwayElements",
-      gene_expression: "parseGeneExpression",
-      rectangular_gene_expression: "parseRectangularGeneExpression",
-      tcga_gene_expression: "parseTCGAGeneExpression",
-      compressed_tar_gz: "uncompressTarGz",
-    };
-    var parsingName = parsingNameMappings[options.file_type];
+    var parsingName = "parse" + options.file_type;
+    console.log("parsingName:", parsingName);
     if (parsingName && parsingFunctions[parsingName]) {
       parsingFunctions[parsingName](blobObject, helpers, jobDone);
     } else {

@@ -17,7 +17,7 @@ function removeForce(path) {
   });
 }
 
-parsingFunctions.uncompressTarGz = function(compressedFile, helpers,
+parsingFunctions.parseCompressedTarGz = function(compressedFile, helpers,
     jobDone) {
   // TODO: rewrite without callback-hell antipattern
   // TODO: delete these folders
