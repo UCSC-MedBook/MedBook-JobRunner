@@ -14,7 +14,6 @@ cfs:collection@0.5.5
 cfs:collection-filters@0.2.4
 cfs:data-man@0.0.6
 cfs:file@0.1.17
-cfs:filesystem@0.1.2
 cfs:gridfs@0.0.33
 cfs:http-methods@0.0.30
 cfs:http-publish@0.0.13
@@ -30,6 +29,7 @@ check@1.0.5
 ddp@1.1.0
 deps@1.0.7
 ejson@1.0.6
+erasaur:meteor-lodash@0.1.0
 fastclick@1.0.3
 geojson-utils@1.0.3
 html-tools@1.0.4
@@ -41,6 +41,7 @@ json@1.0.3
 launch-screen@1.0.2
 livedata@1.0.13
 logging@1.0.7
+medbook:parse-vcf@0.0.1
 medbook:primary-collections@0.0.2
 medbook:wrangler-collections@0.0.1
 meteor@1.1.6

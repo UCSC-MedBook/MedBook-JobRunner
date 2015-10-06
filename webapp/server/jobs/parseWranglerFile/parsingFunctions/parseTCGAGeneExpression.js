@@ -27,7 +27,7 @@ parsingFunctions.parseTCGAGeneExpression =
 
       if (gene_label !== "?") {
         helpers.documentInsert("rectangular_gene_expression", "gene_label", {
-          gene_label,
+          gene_label: gene_label,
         });
       }
     }

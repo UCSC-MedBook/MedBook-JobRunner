@@ -78,8 +78,8 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
       sampleLabel += "Pro";
     }
 
-    for (let recordIndex in data.records) {
-      let record = data.records[recordIndex];
+    for (var recordIndex in data.records) {
+      var record = data.records[recordIndex];
 
       var mutationDoc = {
         "sample_label": sampleLabel,
@@ -92,15 +92,15 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
         "POS": "start_position",
       };
 
-      for (let key in record) {
-        let value = record[key];
+      for (var key in record) {
+        var value = record[key];
 
         if (directMappings[key] !== undefined) {
           mutationDoc[directMappings[key]] = value;
         } else {
           if (key === "INFO") {
-            for (let infoKey in value) {
-              let infoValue = value[infoKey];
+            for (var infoKey in value) {
+              var infoValue = value[infoKey];
               if (infoKey === "EFF") {
                 var effArray = infoValue.split(",");
                 for (var effectIndex in effArray) {

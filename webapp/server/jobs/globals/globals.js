@@ -57,8 +57,8 @@ rectangularFileStream = function (fileObject, helpers, callWithBrokenTabs) {
 // gets the first part of a string, adds "..." at the end if greater than 50
 // characters long
 firstPartOfLine = function (line) {
-  let maxLength = 50;
-  let firstPart = line.substring(0, maxLength);
+  var maxLength = 50;
+  var firstPart = line.substring(0, maxLength);
   if (firstPart !== line) {
     firstPart = firstPart.substring(0, maxLength - 3) + "...";
   }

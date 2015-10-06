@@ -242,6 +242,7 @@ function processSubmission (args, jobDone) {
         break;
       case "gene_expression":
         // insert into expression2
+        // TODO: figure out a better way to do this...
         WranglerDocuments.find({submission_id: submission_id})
             .forEach(function (object) {
           var prospective = object.contents;
