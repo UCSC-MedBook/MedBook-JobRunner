@@ -1,5 +1,4 @@
-parsingFunctions.parseBD2KGeneExpression = function(fileObject, helpers,
-    jobDone) {
+function parse (helpers, fileObject) {
   var noErrors = true;
 
   function wrangleSampleLabel(fileName) {
@@ -58,4 +57,11 @@ parsingFunctions.parseBD2KGeneExpression = function(fileObject, helpers,
     }
     jobDone();
   });
+}
+
+wranglerFileHandlers.BD2KGeneExpression = {
+  parse: parse,
+  insert: function () {
+    console.log("this hasn't been defined yet");
+  },
 };

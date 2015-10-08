@@ -46,20 +46,19 @@ function isProgression(disgustingName) {
   return disgustingName.toLowerCase().indexOf("pro") > -1;
 }
 
-parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
-  var blob = "";
+function parse (helpers, fileObject) {
+  var blobText = "";
   var stream = fileObject.createReadStream("blobs")
   .on('data', function (chunk) {
-    blob += chunk;
+    blobText += chunk;
   })
   .on('end', Meteor.bindEnvironment(function () {
     var data;
     try {
-      data = ParseVCF(blob);
+      data = ParseVCF(blobText);
     } catch (e) {
-      helpers.onError(e.toString());
-      jobDone();
-      return;
+      helpers.onError("Error parsing VCF: " + e.toString());
+      return helpers.doneParsing();
     }
 
     // TODO: pull from the sampleNames in the header
@@ -173,11 +172,19 @@ parsingFunctions.parseMutationVCF = function (fileObject, helpers, jobDone) {
           mutationDoc.gene_label === undefined) {
         // console.log("not adding low impact mutation...");
       } else {
-        helpers.documentInsert("mutation", "mutations", mutationDoc);
+        helpers.documentInsert({
+          submission_type: "mutation",
+          document_type: "prospective_document",
+          collection_name: "mutations",
+          contents: mutationDoc
+        });
       }
     }
 
-    helpers.setFileStatus("done");
-    jobDone();
+    helpers.doneParsing();
   })); // end of .on('end')
+}
+
+wranglerFileHandlers.mutationVCF = {
+  parse: parse,
 };

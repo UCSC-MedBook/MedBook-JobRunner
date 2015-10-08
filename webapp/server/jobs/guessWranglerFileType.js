@@ -54,7 +54,7 @@ jobMethods.guessWranglerFileType = {
         blobName.indexOf("definitions") > -1) {
       setFileOptions({ "file_type": "SuperpathwayElements" });
     } else if (extensionEquals(".vcf")) {
-      setFileOptions({ "file_type": "MutationVCF" });
+      setFileOptions({ "file_type": "mutationVCF" });
     } else if (extensionEquals(".tar.gz")) {
       setFileOptions({ "file_type": "CompressedTarGz" });
     } else if (extensionEquals(".rsem.genes.raw_counts.tab")) {

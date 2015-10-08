@@ -14,3 +14,4 @@ meteorhacks:npm
 
 npm-container
 medbook:parse-vcf
+meteorhacks:aggregate

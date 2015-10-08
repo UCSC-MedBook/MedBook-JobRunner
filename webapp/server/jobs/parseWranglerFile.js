@@ -15,6 +15,7 @@ jobMethods.parseWranglerFile = {
     var helpers = _.extend(options, {
       setFileStatus: Meteor.bindEnvironment(
           function (statusString, errorDescription) {
+        console.log("statusString, errorDescription:", statusString, errorDescription);
         WranglerFiles.update(wranglerFile._id, {
           $set: {
             status: statusString,
@@ -22,55 +23,58 @@ jobMethods.parseWranglerFile = {
           }
         });
       }),
-      documentInsert:
-          function (submission_type, document_type, contents) {
-        if (contents === undefined) {
-          console.log("contents undefined");
-        }
-
-        WranglerDocuments.insert(
+      documentInsert: function (args) { // TODO: ecmascript2015 :'(
+        WranglerDocuments.insert(_.extend(args,
           {
             submission_id: blobObject.metadata.submission_id,
             user_id: blobObject.metadata.user_id,
-            submission_type: submission_type,
-            document_type: document_type,
-            contents: contents,
             wrangler_file_id: wranglerFile._id,
-          },
+          }),
           function (error, result) {
             if (error) {
-              console.log("something went wrong adding to the database...");
-              console.log(error);
-              helpers.onError("something went wrong adding to the database");
+              var message = "Something went wrong adding to the database" +
+                  error;
+              console.log(message);
+              helpers.onError(message);
             }
           }
         );
       },
+      hadErrors: function () {
+        var upToDate = WranglerFiles.findOne(wranglerFile._id);
+        return upToDate.error_description ||
+            upToDate.status === "error";
+      },
+      doneParsing: function () {
+        // doesn't necessarily set file status to "done"
+        if (!helpers.hadErrors()) {
+          helpers.setFileStatus("done");
+        }
+        return jobDone();
+      }
     });
-    // has to be after because code runs immidiately
+    // has to be after because _.partial runs immidiately
     helpers.onError = _.partial(helpers.setFileStatus, "error");
 
     // make sure options.file_type is defined
     if (!options || !options.file_type) {
       helpers.onError("Error: file type not defined");
-      jobDone();
-      return;
+      return jobDone();
     }
 
     // make sure options.file_type is not "error"
     if (options.file_type === "error") {
-      jobDone();
-      return;
+      return jobDone();
     }
 
     // figure out the right method for parsing
-    var parsingName = "parse" + options.file_type;
-    console.log("parsingName:", parsingName);
-    if (parsingName && parsingFunctions[parsingName]) {
-      parsingFunctions[parsingName](blobObject, helpers, jobDone);
+    var fileHandler = wranglerFileHandlers[options.file_type];
+    if (fileHandler && fileHandler.parse) {
+      return fileHandler.parse(helpers, blobObject);
     } else {
-      helpers.onError("Internal error: parsing name or function not defined");
-      jobDone();
+      helpers.onError("Internal error: file handler or parsing function " +
+          "not defined");
+      return jobDone();
     }
   },
   onError: function (args, errorDescription) {

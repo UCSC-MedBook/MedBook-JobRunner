@@ -37,6 +37,7 @@ function runNextJob () {
             status: "running",
             user_id: currentJob.user_id,
           })) {
+        // TODO: timeouts
         console.log("already running a job for this user");
         return "other job with same user_id already started";
       }
