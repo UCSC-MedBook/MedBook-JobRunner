@@ -1,4 +1,12 @@
 function whenDone(jobId, options) {
+  if (options) {
+    // TODO: catch an error from this
+    check(options, new SimpleSchema({
+      error: { type: String, optional: true },
+      retry: { type: Boolean, optional: true }
+    }));
+  }
+
   // TODO: increase retry_count
   var setObject = {
     "status": "done"
@@ -10,7 +18,7 @@ function whenDone(jobId, options) {
       setObject.status = "error";
     }
 
-    if (options.rerun === true) {
+    if (options.retry === true) {
       setObject.status = "waiting"; // overrides "error"
     }
   }
@@ -50,12 +58,8 @@ function runNextJob () {
           _id: jobId,
           status: "waiting",
         }, {
-          $set: {
-            status: "running",
-          },
-          $unset: {
-            error_description: 1
-          }
+          $set: { status: "running" },
+          $unset: { error_description: 1 },
         });
 
         // make sure we actually got it (another JobRunner could have stolen it)
@@ -68,7 +72,7 @@ function runNextJob () {
         if (toRun) {
           // make sure toRun meets the schema
           // NOTE: I don't trust SimpleSchema with validating type Function
-          if (typeof toRun.onRun !== "function" ||
+          if (typeof toRun.runJob !== "function" ||
               typeof toRun.onError !== "function" ||
               typeof toRun.argumentSchema !== "object") {
             return jobDone({
@@ -88,7 +92,12 @@ function runNextJob () {
           // actually run the job
           console.log("running job:", jobId, currentJob.name);
           try {
-            toRun.onRun(currentJob.args, Meteor.bindEnvironment(jobDone));
+            var returned = toRun.runJob(currentJob.args);
+            if (returned && returned instanceof EventEmitter) {
+              returned.once("end", jobDone);
+            } else {
+              jobDone(returned);
+            }
           } catch (e) {
             console.log("caught:", e);
             var errorDescription = e.toString();
@@ -106,13 +115,13 @@ function runNextJob () {
           return jobDone({ error: "Error in prerequisite job" });
         } else {
           console.log("haven't done prerequisite job yet:", mustHaveFinished._id);
-          return jobDone({ rerun: true });
+          return jobDone({ retry: true });
         }
       }
     } catch (e) {
       return jobDone({
         error: "Internal server error [" + e.toString() + "]",
-        rerun: true,
+        retry: true,
       });
     }
   } else {
@@ -122,6 +131,15 @@ function runNextJob () {
 
 Meteor.startup(function () {
   console.log("Server is starting!");
+
+  Jobs.update({
+    status: "running"
+  }, {
+    $set: {
+      status: "error",
+      error_description: "Server restarted"
+    }
+  }, {multi: true});
 
   SyncedCron.config({
     // Log job run details to console

@@ -1,0 +1,1 @@
+Bluebird = Meteor.npmRequire('bluebird');

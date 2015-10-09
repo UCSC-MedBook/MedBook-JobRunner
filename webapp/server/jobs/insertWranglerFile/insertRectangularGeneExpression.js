@@ -2,7 +2,7 @@ jobMethods.insertRectangularGeneExpression = {
   argumentSchema: new SimpleSchema({
     wrangler_file_id: { type: Meteor.ObjectID },
   }),
-  onRun: function (args, jobDone) {
+  runJob: function (args, jobDone) {
     console.log("args:", args);
     var wranglerFile = WranglerFiles.findOne(args.wrangler_file_id);
     var normalization = wranglerFile.options.normalization;

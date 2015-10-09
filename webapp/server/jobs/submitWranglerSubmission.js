@@ -2,7 +2,7 @@
 
 var npmBinarySearch = Meteor.npmRequire('binary-search');
 
-function processSubmission (args, jobDone) {
+function processSubmission (args) {
   var submission_id = args.submission_id;
 
   // // before we begin...
@@ -14,10 +14,7 @@ function processSubmission (args, jobDone) {
   WranglerSubmissions.update(submission_id, { $set: { "errors": [] } });
   var errorCount = 0; // increased with addSubmissionError
 
-  // define some helpers
-  function hasErrors () {
-    return errorCount > 0;
-  }
+  // define some helper functions
   function setSubmissionStatus (newStatus) {
     console.log("submission:", newStatus);
     WranglerSubmissions.update(submission_id, {$set: {"status": newStatus}});
@@ -31,7 +28,7 @@ function processSubmission (args, jobDone) {
       });
     }
 
-    if (!hasErrors()) { // no need to set it twice
+    if (errorCount !== 0) { // no need to set it twice
       setSubmissionStatus("editing");
     }
     errorCount++;
@@ -39,12 +36,12 @@ function processSubmission (args, jobDone) {
 
   // make sure each file is "done"
   WranglerFiles.find({submission_id: submission_id}).forEach(function (doc) {
-    if (value.status !== "done") {
-      addSubmissionError("File not done: " + value.file_name);
+    if (doc.status !== "done") {
+      addSubmissionError("File not done: " + doc.file_name);
     }
   });
-  if (hasErrors()) {
-    return jobDone();
+  if (errorCount !== 0) {
+    return;
   }
 
   // make sure there are some documents
@@ -53,7 +50,7 @@ function processSubmission (args, jobDone) {
       .count();
   if (totalCount === 0) {
     addSubmissionError("No documents present");
-    return jobDone();
+    return;
   }
 
   // make sure we have only one type of submission type
@@ -68,44 +65,37 @@ function processSubmission (args, jobDone) {
         },
       ])[0]
       .distinct_submission_types;
-  console.log("distinctSubmissionTypes:", distinctSubmissionTypes);
   if (distinctSubmissionTypes.length !== 1) {
     addSubmissionError("Mixed document types");
-    return jobDone();
+    return;
   }
-  var submissionType = distinctSubmissionTypes[0];
-
-  var helpers = {
-    addSubmissionError: addSubmissionError,
-    hasErrors: hasErrors,
-  };
 
   // figure out the right method for doing the rest
-  var submissionHandler = wranglerSubmissionHandlers[submissionType];
+  var submissionHandler = wranglerSubmissionHandlers[distinctSubmissionTypes[0]];
   if (submissionHandler && submissionHandler.validate) {
-    if (submissionHandler.validate(submission_id, helpers)) {
-      // can't change it while it's writing to the database
-      setSubmissionStatus("writing");
-
-      helpers.doneWriting = function () {
-        if (!hasErrors()) {
-          setSubmissionStatus("done");
-        }
-        jobDone();
-      };
-
-      submissionHandler.writeToDatabase(submission_id, helpers);
-    } else {
-      // make sure we have an error message
-      if (WranglerSubmissions.findOne(submission_id).errors.length === 0) {
-        var message = "Submission validation failed for an unknown reason.";
-        addSubmissionError(message);
-      }
-      return jobDone();
+    var errors = submissionHandler.validate(submission_id);
+    if (errors && errors.length > 0) {
+      errors.forEach(function (description) {
+        addSubmissionError(description);
+      });
+      return;
     }
+
+    setSubmissionStatus("writing");
+
+    var emitter = new EventEmitter();
+    submissionHandler.writeToDatabase(submission_id)
+      .once("end", function () {
+        setSubmissionStatus("done");
+        emitter.emit("end");
+      });
+    return emitter;
   } else {
-    addSubmissionError("Internal error: submission handler not defined");
-    return jobDone();
+    var error = "Error: submission handler not defined";
+    addSubmissionError(error);
+    return {
+      error: error
+    };
   }
 
 
@@ -362,7 +352,7 @@ jobMethods.submitWranglerSubmission = {
   argumentSchema: new SimpleSchema({
     "submission_id": { type: Meteor.ObjectID },
   }),
-  onRun: processSubmission,
+  runJob: processSubmission,
   onError: function (args, errorDescription) {
     WranglerSubmissions.update(args.submission_id, {
       $set: {

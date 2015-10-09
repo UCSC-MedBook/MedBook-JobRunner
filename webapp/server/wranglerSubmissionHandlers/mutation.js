@@ -1,5 +1,7 @@
 wranglerSubmissionHandlers.mutation = {
-  validate: function (submission_id, helpers) {
+  validate: function (submission_id) {
+    var errorArray = [];
+
     // add missing information to all documents
     var options = WranglerSubmissions.findOne(submission_id).options;
     WranglerDocuments.update({
@@ -23,7 +25,7 @@ wranglerSubmissionHandlers.mutation = {
         })
         .forEach(function (doc) {
           if (!context.validate(doc.contents)) {
-            helpers.addSubmissionError(_.reduce(context.invalidKeys(),
+            errorArray.push(_.reduce(context.invalidKeys(),
                 function (memo, current) {
                   console.log("current:", current);
                   return memo +
@@ -33,15 +35,32 @@ wranglerSubmissionHandlers.mutation = {
           }
         });
 
-    return true;
+    return errorArray;
   },
-  writeToDatabase: function (submission_id, helpers) {
-    WranglerDocuments.find({
-          submission_id: submission_id,
-          collection_name: "mutations",
-        }).forEach(function (wranglerDoc) {
-          Mutations.insert(wranglerDoc.contents);
-        });
-    helpers.doneWriting();
+  writeToDatabase: function (submission_id) {
+    var emitter = new EventEmitter();
+
+
+    var cursor = WranglerDocuments.find({
+      submission_id: submission_id,
+      collection_name: "mutations",
+    });
+    
+    var toInsert = cursor.count();
+    var inserted = 0;
+
+    cursor.forEach(function (wranglerDoc) {
+      Mutations.insert(wranglerDoc.contents, function (error) {
+        if (error) {
+          console.log("ERROR: there was a problem in the writeToDatabase!!");
+          console.log("error:", error);
+        }
+        inserted++;
+        if (inserted === toInsert) {
+          emitter.emit("end");
+        }
+      });
+    });
+    return emitter;
   },
 };

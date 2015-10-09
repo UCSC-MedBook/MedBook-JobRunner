@@ -3,27 +3,25 @@ jobMethods.guessWranglerFileType = {
   argumentSchema: new SimpleSchema({
     "wrangler_file_id": { type: Meteor.ObjectID },
   }),
-  onRun: function (args, jobDone) {
+  runJob: function (args) {
+    console.log("runJob");
     var wranglerFile = WranglerFiles.findOne(args.wrangler_file_id);
     if (!wranglerFile) {
       console.log("couldn't find wrangler file with _id", args.wrangler_file_id);
-      jobDone();
-      return "couldn't find wrangler file";
+      return;
     }
 
     var blobObject = Blobs.findOne(wranglerFile.blob_id);
     if (!blobObject) {
       console.log("couldn't find blob with _id", wranglerFile.blob_id);
-      jobDone();
-      return "couldn't find blob";
+      return;
     }
 
     if (!blobObject.hasStored("blobs")) {
       console.log("file hasn't been stored yet");
-      jobDone({
-        "rerun": true,
-      });
-      return "blob hasn't stored yet";
+      return {
+        "retry": true,
+      };
     }
 
     // set the status to processing
@@ -47,7 +45,6 @@ jobMethods.guessWranglerFileType = {
       });
     }
 
-    // TODO: pull from manual_file_type if possible
     if (extensionEquals(".sif")) {
       setFileOptions({ "file_type": "SuperpathwayInteractions" });
     } else if (extensionEquals(".tab") &&
@@ -88,8 +85,6 @@ jobMethods.guessWranglerFileType = {
         }
       });
     }
-
-    jobDone();
   },
   onError: function (args, error_description) {
     error_description = "Internal error running job: " +

@@ -1,57 +1,45 @@
 // the keys here correspond to Jobs.name in the Jobs collection
 jobMethods = {};
 
-// makes it easy to read a file line by line:
-// calls callWithLine with each successive line of the file
-lineByLineStream = function(fileObject, callWithLine, callOnEnd) {
-  var lineIndex = 0;
+rectangularFileStream = function (fileObject) {
+  var emitter = new EventEmitter();
 
-  var byLine = Meteor.npmRequire('byline');
-  var stream = byLine(fileObject.createReadStream("blobs"))
-    .on('data', Meteor.bindEnvironment(function (lineObject) {
-      var line = lineObject.toString();
-      callWithLine(line, lineIndex);
-      lineIndex++;
-    }));
-  if (callOnEnd) {
-    stream.on('end', callOnEnd);
-  }
-  return stream;
-};
+  var linePromises = [];
 
-// specifically for parsing tab-seperated files
-rectangularFileStream = function (fileObject, helpers, callWithBrokenTabs) {
-  var noErrors = true;
+  var lineNumber = 0; // starts at one
   var tabCount;
 
-  var oldOnError = helpers.onError;
-  helpers.onError = function () {
-    noErrors = false;
-    oldOnError();
-  };
+  var byLine = Meteor.npmRequire('byline');
+  byLine(fileObject.createReadStream("blobs"))
+    .on('data', Meteor.bindEnvironment(function (lineObject) {
+      var deferred = Bluebird.defer();
+      linePromises.push(deferred.promise);
 
-  lineByLineStream(fileObject, function (line, lineIndex) {
-    if (noErrors) {
+      var line = lineObject.toString();
       var brokenTabs = line.split("\t");
+      lineNumber++;
 
       // make sure file is rectangular
       if (tabCount === undefined) {
         tabCount = brokenTabs.length;
       } else if (tabCount !== brokenTabs.length) {
-        noErrors = false;
-        helpers.onError("File not rectangular. " +
-            "Line " + (lineIndex + 1) + " has " + brokenTabs.length +
+        emitter.emit("error", "File not rectangular. " +
+            "Line " + lineNumber + " has " + brokenTabs.length +
             " columns, not " + tabCount);
       }
 
-      callWithBrokenTabs(brokenTabs, lineIndex, line);
-    }
-  }, function () {
-    if (noErrors) {
-      helpers.setFileStatus("done");
-    }
-    jobDone(); // TODO: figure out a better place for this
-  });
+      emitter.emit("line", brokenTabs, lineNumber, line);
+
+      deferred.resolve();
+    }))
+    .on('end', function () {
+      Bluebird.all(linePromises)
+        .then(Meteor.bindEnvironment(function () {
+          emitter.emit("end");
+        }));
+    });
+
+  return emitter;
 };
 
 // gets the first part of a string, adds "..." at the end if greater than 50

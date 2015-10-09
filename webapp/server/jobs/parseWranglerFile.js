@@ -3,7 +3,7 @@ jobMethods.parseWranglerFile = {
   argumentSchema: new SimpleSchema({
     "wrangler_file_id": { type: Meteor.ObjectID },
   }),
-  onRun: function (args, jobDone) {
+  runJob: function (args) {
     var wranglerFile = WranglerFiles.findOne(args.wrangler_file_id);
     var blobObject = Blobs.findOne(wranglerFile.blob_id);
 
@@ -12,69 +12,102 @@ jobMethods.parseWranglerFile = {
       options = {};
     }
 
-    var helpers = _.extend(options, {
-      setFileStatus: Meteor.bindEnvironment(
-          function (statusString, errorDescription) {
-        console.log("statusString, errorDescription:", statusString, errorDescription);
-        WranglerFiles.update(wranglerFile._id, {
-          $set: {
-            status: statusString,
-            error_description: errorDescription,
-          }
-        });
-      }),
-      documentInsert: function (args) { // TODO: ecmascript2015 :'(
-        WranglerDocuments.insert(_.extend(args,
-          {
-            submission_id: blobObject.metadata.submission_id,
-            user_id: blobObject.metadata.user_id,
-            wrangler_file_id: wranglerFile._id,
-          }),
-          function (error, result) {
-            if (error) {
-              var message = "Something went wrong adding to the database" +
-                  error;
-              console.log(message);
-              helpers.onError(message);
-            }
-          }
-        );
-      },
-      hadErrors: function () {
-        var upToDate = WranglerFiles.findOne(wranglerFile._id);
-        return upToDate.error_description ||
-            upToDate.status === "error";
-      },
-      doneParsing: function () {
-        // doesn't necessarily set file status to "done"
-        if (!helpers.hadErrors()) {
-          helpers.setFileStatus("done");
+    function setStatusError(error_description) {
+      WranglerFiles.update(wranglerFile._id, {
+        $set: {
+          status: "error",
+          error_description: error_description,
         }
-        return jobDone();
-      }
-    });
-    // has to be after because _.partial runs immidiately
-    helpers.onError = _.partial(helpers.setFileStatus, "error");
+      });
+    }
 
-    // make sure options.file_type is defined
     if (!options || !options.file_type) {
-      helpers.onError("Error: file type not defined");
-      return jobDone();
+      return setStatusError("Error: file type not set");
     }
 
     // make sure options.file_type is not "error"
     if (options.file_type === "error") {
-      return jobDone();
+      // couldn't figure it out in guessWranglerFileType job
+      return;
     }
 
     // figure out the right method for parsing
     var fileHandler = wranglerFileHandlers[options.file_type];
-    if (fileHandler && fileHandler.parse) {
-      return fileHandler.parse(helpers, blobObject);
+    if (fileHandler && fileHandler.parser) {
+      var emitter = new EventEmitter();
+      var noErrors = true;
+      var ended = false;
+
+      fileHandler.parser(blobObject, options)
+        .on("document-insert", Meteor.bindEnvironment(
+            function (metadataAndContents) {
+          if (!ended && noErrors) {
+            try {
+              // make sure it's good enough to add
+              check(metadataAndContents, WranglerDocuments.simpleSchema().pick([
+                "submission_type",
+                "document_type",
+                "collection_name",
+                "contents",
+              ]));
+
+              // actually add it
+              WranglerDocuments.insert(_.extend(metadataAndContents, {
+                submission_id: blobObject.metadata.submission_id,
+                user_id: blobObject.metadata.user_id,
+                wrangler_file_id: wranglerFile._id,
+              }));
+            } catch (e) {
+              // check of schema failed
+              noErrors = false;
+              setStatusError("Error: parser tried to add an invalid " +
+                  "wrangler document");
+              console.log("e:", e);
+              emitter.emit("end");
+            }
+          } else {
+            console.log("parser tried to insert after ending or error, " +
+                "ignoring...");
+          }
+        }))
+        .on("error", function (description) {
+          if (!ended && noErrors) {
+            noErrors = false;
+            setStatusError(description);
+
+            // remove all added documents
+            WranglerDocuments.remove({
+              wrangler_file_id: wranglerFile._id
+            });
+
+            emitter.emit("end");
+          } else {
+            console.log("parser returned more than one error or returned " +
+                "an error after ending, ignoring... " + description);
+          }
+        })
+        .once("end", function () {
+          if (noErrors) {
+            ended = true;
+            WranglerFiles.update(wranglerFile._id, {
+              $set: {
+                status: "done"
+              }
+            });
+            emitter.emit("end");
+          } else {
+            console.log("parser ended after returning an error... ignoring");
+          }
+        });
+
+      return emitter;
     } else {
-      helpers.onError("Internal error: file handler or parsing function " +
-          "not defined");
-      return jobDone();
+      var message = "Internal error: file handler or parsing function " +
+          "not defined";
+      setStatusError(message);
+      return {
+        error: message
+      };
     }
   },
   onError: function (args, errorDescription) {
