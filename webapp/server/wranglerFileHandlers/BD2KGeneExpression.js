@@ -10,16 +10,18 @@ function parseSampleLabel(options) {
 
 function parser (fileObject, options) {
   var emitter = new EventEmitter();
-  var sample_label;
+  var sample_label = options.sample_label;
   var gene_count = 0;
 
   rectangularFileStream(fileObject)
     .on("line", function (brokenTabs, lineNumber, line) {
       if (lineNumber === 1) { // header line
-        sample_label = parseSampleLabel([
-          brokenTabs[1],
-          fileObject.original.name]
-        );
+        if (!sample_label) {
+          sample_label = parseSampleLabel([
+            brokenTabs[1],
+            fileObject.original.name]
+          );
+        }
         if (!sample_label) {
           emitter.emit("error", "Error: could not parse sample label from " +
               "header line or file name");
