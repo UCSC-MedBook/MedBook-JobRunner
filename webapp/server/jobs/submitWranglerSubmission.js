@@ -85,10 +85,10 @@ function processSubmission (args) {
 
     var emitter = new EventEmitter();
     submissionHandler.writeToDatabase(submission_id)
-      .once("end", function () {
+      .then(Meteor.bindEnvironment(function () {
         setSubmissionStatus("done");
         emitter.emit("end");
-      });
+      }));
     return emitter;
   } else {
     var error = "Error: submission handler not defined";

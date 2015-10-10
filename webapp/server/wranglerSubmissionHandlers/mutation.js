@@ -38,29 +38,27 @@ wranglerSubmissionHandlers.mutation = {
     return errorArray;
   },
   writeToDatabase: function (submission_id) {
-    var emitter = new EventEmitter();
-
-
-    var cursor = WranglerDocuments.find({
-      submission_id: submission_id,
-      collection_name: "mutations",
-    });
-    
-    var toInsert = cursor.count();
-    var inserted = 0;
-
-    cursor.forEach(function (wranglerDoc) {
-      Mutations.insert(wranglerDoc.contents, function (error) {
-        if (error) {
-          console.log("ERROR: there was a problem in the writeToDatabase!!");
-          console.log("error:", error);
-        }
-        inserted++;
-        if (inserted === toInsert) {
-          emitter.emit("end");
-        }
+    return new Bluebird(Meteor.bindEnvironment(function (resolve) {
+      var cursor = WranglerDocuments.find({
+        submission_id: submission_id,
+        collection_name: "mutations",
       });
-    });
-    return emitter;
+
+      var toInsert = cursor.count();
+      var inserted = 0;
+
+      cursor.forEach(function (wranglerDoc) {
+        Mutations.insert(wranglerDoc.contents, function (error) {
+          if (error) {
+            console.log("ERROR: there was a problem in the writeToDatabase!!");
+            console.log("error:", error);
+          }
+          inserted++;
+          if (inserted === toInsert) {
+            resolve();
+          }
+        });
+      });
+    }));
   },
 };

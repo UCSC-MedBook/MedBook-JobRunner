@@ -32,12 +32,12 @@ rectangularFileStream = function (fileObject) {
 
       deferred.resolve();
     }))
-    .on('end', function () {
+    .on('end', Meteor.bindEnvironment(function () {
       Bluebird.all(linePromises)
         .then(Meteor.bindEnvironment(function () {
           emitter.emit("end");
         }));
-    });
+    }));
 
   return emitter;
 };
@@ -51,4 +51,20 @@ firstPartOfLine = function (line) {
     firstPart = firstPart.substring(0, maxLength - 3) + "...";
   }
   return firstPart;
+};
+
+wrangleSampleLabel = function (text) {
+  var matches = text.match(/DTB-[0-9][0-9][0-9]/g);
+  if (matches && matches.length > 0 &&
+      _.every(matches, function (value) {
+        return value === matches[0];
+      })) {
+    // TODO: what if it's ProR3 or something?
+    var progressionMatches = text.match(/pro/gi);
+    if (progressionMatches) {
+      return matches[0] + "Pro";
+    } else {
+      return matches[0];
+    }
+  }
 };
