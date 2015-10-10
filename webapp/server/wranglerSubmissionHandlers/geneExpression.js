@@ -16,7 +16,7 @@ wranglerSubmissionHandlers.gene_expression = {
         var fileObject = Blobs.findOne(wranglerFile.blob_id);
         var options = _.extend(wranglerFile.options, submissionOptions);
 
-        console.log("options:", options);
+        console.log("combined options:", options);
 
         var fileHandler = wranglerFileHandlers[options.file_type];
         if (fileHandler.write) {

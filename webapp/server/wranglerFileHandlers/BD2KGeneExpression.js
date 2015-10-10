@@ -56,6 +56,7 @@ function parser (fileObject, options) {
     }))
     .on("end", Meteor.bindEnvironment(function () {
       // describe the file in a single wrangler document
+      // TODO: document-upsert
       emitter.emit("document-insert", {
         submission_type: "gene_expression",
         document_type: "sample_normalization",
@@ -73,15 +74,17 @@ function parser (fileObject, options) {
 
 function write (fileObject, options) {
   return new Bluebird(Meteor.bindEnvironment(function (resolve, reject) {
-    var sample_label;
+    var sample_label = options.sample_label;
 
     rectangularFileStream(fileObject)
       .on("line", function (brokenTabs, lineNumber, line) {
         if (lineNumber === 1) { // header line
-          sample_label = parseSampleLabel([
-            brokenTabs[1],
-            fileObject.original.name]
-          );
+          if (!sample_label) {
+            sample_label = parseSampleLabel([
+              brokenTabs[1],
+              fileObject.original.name]
+            );
+          }
         } else { // rest of file
           if (lineNumber % 1000 === 0) {console.log("lineNumber:", lineNumber);}
 
