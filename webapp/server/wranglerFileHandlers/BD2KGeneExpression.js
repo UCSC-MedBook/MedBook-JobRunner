@@ -136,12 +136,13 @@ function write (fileObject, options) {
           deferred.resolve();
         } else { // rest of file
           sampleLabelPromise.then(Meteor.bindEnvironment(function () {
-            if (lineNumber % 1000 === 0) {console.log("lineNumber:", lineNumber);}
             var setObject = {};
             setObject["samples." + sample_label + "." +
                 options.normalization] = parseFloat(brokenTabs[1]);
 
-            console.log("setObject:", setObject);
+            if (lineNumber % 100 === 0) {
+              console.log("lineNumber:", lineNumber, "setObject:", setObject);
+            }
             expression2.upsert({
               Study_ID: options.study_label,
               gene: brokenTabs[0],
