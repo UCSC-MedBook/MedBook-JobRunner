@@ -53,12 +53,21 @@ firstPartOfLine = function (line) {
   return firstPart;
 };
 
+// // returns the match if the regex matches the text once, otherwise undefined
+// function matchOnce (text, regex) {
+//   var matches = text.match(regex);
+//   if (matches && matches.length > 0 &&
+//       _.every(matches, function (value) {
+//         return value === matches[0];
+//       })) {
+//     return matches[0];
+//   }
+// }
+
 wrangleSampleLabel = function (text) {
+  // try to match something like "DTB-048"
   var matches = text.match(/DTB-[0-9][0-9][0-9]/g);
-  if (matches && matches.length > 0 &&
-      _.every(matches, function (value) {
-        return value === matches[0];
-      })) {
+  if (matches && matches.length > 0) {
     // TODO: what if it's ProR3 or something?
     var progressionMatches = text.match(/pro/gi);
     if (progressionMatches) {
@@ -67,4 +76,21 @@ wrangleSampleLabel = function (text) {
       return matches[0];
     }
   }
+};
+
+wrangleSampleUUID = function (text, submission_id) {
+  var sample_label;
+
+  WranglerDocuments.find({
+    submission_id: submission_id,
+    document_type: "sample_label_map",
+  }).forEach(function (wranglerDoc) {
+    // check if sample_uuid in text
+    var index = text.indexOf(wranglerDoc.contents.sample_uuid);
+    if (index >= 0) {
+      sample_label = wranglerDoc.contents.sample_label;
+    }
+  });
+
+  return sample_label;
 };

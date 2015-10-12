@@ -87,24 +87,6 @@ jobMethods.guessWranglerFileType = {
         }
       });
     }
-
-    // see if we can attach a sample_label to BD2KGeneExpression ones
-    // NOTE: assuming options hasn't changed from when it was set above
-    if (options.file_type === "BD2KGeneExpression") {
-      var uuidLength = "10a58066-d69b-4edf-8a88-bbbf8b91592b".length;
-      var wranglerDoc = WranglerDocuments.findOne({
-        submission_id: wranglerFile.submission_id,
-        document_type: "sample_label_map",
-        "contents.sample_uuid": blobName.slice(0, uuidLength),
-      });
-      if (wranglerDoc) {
-        WranglerFiles.update(wranglerFile._id, {
-          $set: {
-            "options.sample_label": wranglerDoc.contents.sample_label
-          }
-        });
-      }
-    }
   },
   onError: function (args, error_description) {
     error_description = "Internal error running job: " +

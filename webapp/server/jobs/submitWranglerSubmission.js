@@ -86,6 +86,7 @@ function processSubmission (args) {
     var emitter = new EventEmitter();
     submissionHandler.writeToDatabase(submission_id)
       .then(Meteor.bindEnvironment(function () {
+        console.log("the thing has resolved");
         setSubmissionStatus("done");
         emitter.emit("end");
       }));

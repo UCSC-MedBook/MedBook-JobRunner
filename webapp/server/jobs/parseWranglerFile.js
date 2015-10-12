@@ -67,7 +67,7 @@ jobMethods.parseWranglerFile = {
             }
           } else {
             console.log("parser tried to insert after ending or error, " +
-                "ignoring...");
+                "ignoring...", metadataAndContents);
           }
         }))
         .on("error", function (description) {

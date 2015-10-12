@@ -11,8 +11,6 @@ wranglerSubmissionHandlers.gene_expression = {
     return new Bluebird(Meteor.bindEnvironment(function (resolve) {
       WranglerFiles.find({ submission_id: submission_id })
           .forEach(function (wranglerFile) {
-        var deferred = Bluebird.defer();
-        filePromises.push(deferred.promise);
         var fileObject = Blobs.findOne(wranglerFile.blob_id);
         var options = _.extend(wranglerFile.options, submissionOptions);
 
@@ -20,6 +18,8 @@ wranglerSubmissionHandlers.gene_expression = {
 
         var fileHandler = wranglerFileHandlers[options.file_type];
         if (fileHandler.write) {
+          var deferred = Bluebird.defer();
+          filePromises.push(deferred.promise);
           fileHandler.write(fileObject, options)
             .then(function () {
               deferred.resolve();
