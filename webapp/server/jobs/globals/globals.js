@@ -1,4 +1,13 @@
-// the keys here correspond to Jobs.name in the Jobs collection
+// actual globals
+BlueBird = Meteor.npmRequire('bluebird');
+
+
+
+
+
+
+// TODO: delete below this line
+
 jobMethods = {};
 
 rectangularFileStream = function (fileObject) {

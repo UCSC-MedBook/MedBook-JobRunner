@@ -1,61 +1,36 @@
-function whenDone(jobId, options) {
-  if (options) {
-    // TODO: catch an error from this
-    check(options, new SimpleSchema({
-      error: { type: String, optional: true },
-      retry: { type: Boolean, optional: true }
-    }));
-  }
-
-  // TODO: increase retry_count
-  var setObject = {
-    "status": "done"
-  };
-
-  if (options) {
-    if (options.error) {
-      setObject.error_description = options.error;
-      setObject.status = "error";
-    }
-
-    if (options.retry === true) {
-      setObject.status = "waiting"; // overrides "error"
-    }
-  }
-
-  console.log("job:", setObject);
-  Jobs.update(jobId, {
-    $set: setObject
-  });
-  return setObject.status;
-}
-
 function runNextJob () {
-  // TODO: use jobDone instead of whenDone
-
   // grab the first job
-  var currentJob = Jobs.findOne({ "status": "waiting" },
+  var mongoJob = Jobs.findOne({ "status": "waiting" },
       { sort: [["date_modified", "ascending"]] });
-  if (currentJob) {
-    var jobId = currentJob._id;
-    var jobDone = _.partial(whenDone, jobId);
+  if (mongoJob) {
+    var job_id = mongoJob._id;
+
+    // NOTE: using var because it shouldn't have function scope
+    var retryLater = function (error_description) {
+      Jobs.update(job_id, {
+        $set: {
+          status: "waiting",
+          error_description: error_description,
+        },
+        $inc: { "retry_count": 1 }
+      });
+    };
+
     try {
       // check to see if another job is being run by the same user
       if (Jobs.findOne({
             status: "running",
-            user_id: currentJob.user_id,
+            user_id: mongoJob.user_id,
           })) {
-        // TODO: timeouts
         console.log("already running a job for this user");
-        return "other job with same user_id already started";
       }
 
       // check to see if something else has to be done first
-      var mustHaveFinished = Jobs.findOne(currentJob.prerequisite_job_id);
+      var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
       if (!mustHaveFinished || mustHaveFinished.status === "done") {
         // try to claim the job as ours
         var updateCount = Jobs.update({
-          _id: jobId,
+          _id: job_id,
           status: "waiting",
         }, {
           $set: { status: "running" },
@@ -64,68 +39,77 @@ function runNextJob () {
 
         // make sure we actually got it (another JobRunner could have stolen it)
         if (updateCount === 0) {
-          return "another JobRunner stole the job";
+          return;
         }
 
-        // find and run the correct method
-        var toRun = jobMethods[currentJob.name];
-        if (toRun) {
-          // make sure toRun meets the schema
-          // NOTE: I don't trust SimpleSchema with validating type Function
-          if (typeof toRun.runJob !== "function" ||
-              typeof toRun.onError !== "function" ||
-              typeof toRun.argumentSchema !== "object") {
-            return jobDone({
-              error: "job function incorrectly defined"
-            });
-          }
-
-          // make sure the arguments meet the schema
-          try {
-            check(currentJob.args, toRun.argumentSchema);
-          } catch (e) {
-            return jobDone({
-              error: "arguments do not match schema",
-            });
-          }
-
-          // actually run the job
-          console.log("running job:", jobId, currentJob.name);
-          try {
-            var returned = toRun.runJob(currentJob.args);
-            if (returned && returned instanceof EventEmitter) {
-              returned.once("end", jobDone);
-            } else {
-              jobDone(returned);
+        // get the job's class
+        var jobClass = JobClasses[mongoJob.name];
+        if (!jobClass) {
+          Jobs.update(job_id, {
+            $set: {
+              status: "error",
+              error_description: "job class not defined",
             }
-          } catch (e) {
-            console.log("caught:", e);
-            var errorDescription = e.toString();
-            toRun.onError(currentJob.args, errorDescription);
-            return jobDone({ error: errorDescription });
-          }
-          return "started job: " + currentJob.name;
-        } else {
-          console.log("unknown job name:", currentJob.name);
-          return jobDone({ error: "Unknown job name" });
+          });
+        }
+
+        // create a Job object
+        var job;
+        try {
+          job = new jobClass(mongoJob._id);
+        } catch (e) {
+          console.log("Error creating job object:", e);
+          Jobs.update(job_id, {
+            $set: {
+              status: "error",
+              error_description: e.toString(),
+            }
+          });
+          return;
+        }
+
+        if (job.reasonForRetry) {
+          retryLater(job.reasonForRetry);
+          return;
+        }
+
+        // run the job
+        try {
+          BlueBird.resolve(job.run())
+              .then(Meteor.bindEnvironment(function (result) {
+                console.log("result of job.run resolution:", result);
+                job.onSuccess(result);
+              }))
+              .catch(function (reason) {
+                console.log("job was rejected for some reason:", reason);
+                job.onError(reason);
+              });
+        } catch (e) {
+          console.log("onError called with e:", e);
+          job.onError(e);
         }
       } else {
         // if there was an error with that one, there's an error with this one
         if (mustHaveFinished.status === "error") {
-          return jobDone({ error: "Error in prerequisite job" });
+          Jobs.update(job_id, {
+            $set: {
+              status: "error",
+              error_description: "error in prerequisite job",
+            }
+          });
         } else {
-          console.log("haven't done prerequisite job yet:", mustHaveFinished._id);
-          return jobDone({ retry: true });
+          retryLater("not finished with prerequisite job");
         }
       }
     } catch (e) {
-      return jobDone({
-        error: "Internal server error [" + e.toString() + "]",
-        retry: true,
+      console.log("internal server error:", e);
+      Jobs.update(job_id, {
+        $set: {
+          status: "error",
+          error_description: "internal server error: " + e.toString(),
+        }
       });
     }
-  } else {
-    return "no jobs available";
   }
 }
 
