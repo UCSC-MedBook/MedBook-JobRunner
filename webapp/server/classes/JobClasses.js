@@ -1,19 +1,16 @@
 function Job (job_id) {
-  var job = Jobs.findOne(job_id);
-  if (job) {
-    this.job = {};
-    _.extend(this.job, Jobs.findOne(job_id));
-  } else {
+  this.job = Jobs.findOne(job_id);
+  if (!this.job) {
     throw "Invalid job_id";
   }
 
   this.reasonForRetry = false;
 }
 Job.prototype.run = function() {
-  console.log("running job: " + this.job._id + "\t" + this.job.name);
+  console.log("no run function defined");
 };
 Job.prototype.retry = function(reasonForRetry) {
-  // TODO: this needs documentation big time...
+  // TODO: this needs documentation big time... or maybe needs to be changed...
   if (!reasonForRetry) {
     reasonForRetry = "unknown reason";
   }
@@ -21,18 +18,14 @@ Job.prototype.retry = function(reasonForRetry) {
   this.reasonForRetry = reasonForRetry;
 };
 Job.prototype.onError = function(e) {
-  console.log("Error: internal error running job");
+  console.log("No onError function defined");
 };
 Job.prototype.onSuccess = function () {
-  Jobs.update(this.job._id, {
-    $set: { status: "done" }
-  });
+  console.log("No onSuccess function defined");
 };
 
 
-function WranglerFileJob (job_id) {
-  Job.call(this, job_id);
-
+function ensureWranglerFileIntegrity() {
   this.wranglerFile = WranglerFiles.findOne(this.job.args.wrangler_file_id);
   if (!this.wranglerFile) {
     throw "Invalid wrangler_file_id";
@@ -47,32 +40,84 @@ function WranglerFileJob (job_id) {
     throw "Invalid blob_id";
   }
 }
-WranglerFileJob.prototype = Object.create(Job.prototype);
-WranglerFileJob.prototype.constructor = WranglerFileJob;
-WranglerFileJob.prototype.run = function () {
-  Job.prototype.run.call(this);
 
-  // set the status to processing
+
+function ParseWranglerFile (job_id) {
+  Job.call(this, job_id);
+
+  ensureWranglerFileIntegrity.call(this);
+}
+ParseWranglerFile.prototype = Object.create(Job.prototype);
+ParseWranglerFile.prototype.constructor = ParseWranglerFile;
+ParseWranglerFile.prototype.run = function () {
+  var self = this;
+
   WranglerFiles.update(this.wranglerFile._id, {
     $set: {
       "status": "processing",
     }
   });
-};
-WranglerFileJob.prototype.onError = function (e) {
-  var wrangler_file_id = this.job.args.wrangler_file_id;
-  if (wrangler_file_id) {
-    WranglerFiles.update(wrangler_file_id, {
+
+  // try to guess options that have not been manually specified
+  var options = self.wranglerFile.options;
+  if (options === undefined) {
+    options = {};
+  }
+  function setFileOptions(newOptions) {
+    _.extend(options, newOptions); // keeps options up to doate
+    WranglerFiles.update(self.wranglerFile._id, {
       $set: {
-        status: "error",
-        error_description: "Error running job: " + e.toString(),
+        "options": options
       }
     });
   }
-};
-WranglerFileJob.prototype.onSuccess = function (result) {
-  Job.prototype.onSuccess.call(this, result);
 
+  // for guesses of file name
+  var blobName = self.blob.original.name;
+  function extensionEquals(extension) {
+    return blobName.slice(-extension.length) === extension;
+  }
+
+  // try to guess file_type
+  if (!options.file_type) {
+    if (extensionEquals(".vcf")) {
+      setFileOptions({ file_type: "MutationVCF" });
+    }
+    if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
+      setFileOptions({ file_type: "BD2KGeneExpression" });
+    }
+  }
+
+  // try to guess normalization
+  if (!options.normalization) {
+    // try to guess normalization
+    if (blobName.match(/raw_counts/g)) {
+      setFileOptions({ normalization: "raw_counts" });
+    } else if (blobName.match(/norm_counts/g)) {
+      setFileOptions({ normalization: "counts" });
+    } else if (blobName.match(/norm_tpm/g)) {
+      setFileOptions({ normalization: "tpm" });
+    } else if (blobName.match(/norm_fpkm/g)) {
+      setFileOptions({ normalization: "fpkm" });
+    }
+  }
+
+  // figure out which FileHandler to create
+  console.log("options.file_type:", options.file_type);
+  var fileHandler = new FileHandlers[options.file_type]
+      (self.wranglerFile._id, true);
+  console.log("fileHandler:", fileHandler);
+  return fileHandler.parse();
+};
+ParseWranglerFile.prototype.onError = function (e) {
+  WranglerFiles.update(this.job.args.wrangler_file_id, {
+    $set: {
+      status: "error",
+      error_description: "Error running job: " + e.toString(),
+    }
+  });
+};
+ParseWranglerFile.prototype.onSuccess = function (result) {
   WranglerFiles.update(this.wranglerFile._id, {
     $set: {
       status: "done"
@@ -81,74 +126,239 @@ WranglerFileJob.prototype.onSuccess = function (result) {
 };
 
 
-function GuessWranglerFileType (job_id) {
-  WranglerFileJob.call(this, job_id);
+function SubmitWranglerFile (job_id) {
+  Job.call(this, job_id);
+
+  ensureWranglerFileIntegrity.call(this);
 }
-GuessWranglerFileType.prototype = Object.create(WranglerFileJob.prototype);
-GuessWranglerFileType.prototype.constructor = GuessWranglerFileType;
-GuessWranglerFileType.prototype.run = function () {
-  WranglerFileJob.prototype.run.call(this);
+SubmitWranglerFile.prototype = Object.create(Job.prototype);
+SubmitWranglerFile.prototype.constructor = SubmitWranglerFile;
+SubmitWranglerFile.prototype.run = function () {
+  // figure out which FileHandler to create
+  var fileHandler = new FileHandlers[this.wranglerFile.options.file_type]
+      (this.wranglerFile._id, false);
+  return fileHandler.parse();
+};
+SubmitWranglerFile.prototype.onError = function (e) {
+  // TODO: should this be the correct behaviour?
+  console.log("How can we have an onError in SubmitWranglerFile after going " +
+      "through ParseWranglerFile...");
+  var wranglerFile = WranglerFiles.findOne(this.job.args.wrangler_file_id);
+  WranglerSubmissions.update(wranglerFile.submission_id, {
+    $addToSet: {
+      errors: "Error running write job: " + e,
+    }
+  });
+};
+SubmitWranglerFile.prototype.onSuccess = function (result) {
+  WranglerFiles.update(this.wranglerFile._id, {
+    $set: {
+      written_to_database: true,
+    }
+  });
+};
 
-  // differentiate by file name, etc.
-  var blobName = this.blob.original.name;
-  function extensionEquals(extension) {
-    return blobName.slice(-extension.length) === extension;
+
+function SubmitWranglerSubmission (job_id) {
+  Job.call(this, job_id);
+
+  this.submission = WranglerSubmissions.findOne(this.job.args.submission_id);
+  if (!this.submission) {
+    throw "Invalid submission_id";
+  }
+}
+SubmitWranglerSubmission.prototype = Object.create(Job.prototype);
+SubmitWranglerSubmission.prototype.constructor = SubmitWranglerSubmission;
+SubmitWranglerSubmission.prototype.run = function () {
+  var submission_id = this.submission._id;
+
+  // remove all previous submission errors
+  WranglerSubmissions.update(submission_id, { $set: { "errors": [] } });
+  var errorCount = 0; // increased with addSubmissionError
+
+  // define some helper functions
+  function setSubmissionStatus (newStatus) {
+    console.log("submission:", newStatus);
+    WranglerSubmissions.update(submission_id, {$set: {"status": newStatus}});
+  }
+  function addSubmissionError (description) {
+    if (errorCount < 25) {
+      WranglerSubmissions.update(submission_id, {
+        $addToSet: {
+          "errors": description,
+        }
+      });
+    }
+
+    if (errorCount !== 0) { // no need to set it twice
+      setSubmissionStatus("editing");
+    }
+    errorCount++;
   }
 
+  // make sure each file is "done"
+  WranglerFiles.find({submission_id: submission_id}).forEach(function (doc) {
+    if (doc.status !== "done") {
+      addSubmissionError("File not done: " + doc.file_name);
+    }
+  });
+  if (errorCount !== 0) {
+    return;
+  }
+
+  // make sure there are some documents
+  // NOTE: I'm assuming we have to have documents...
+  var totalCount = WranglerDocuments
+      .find({submission_id: submission_id})
+      .count();
+  if (totalCount === 0) {
+    addSubmissionError("No documents present");
+    return;
+  }
+
+  // make sure we have only one type of submission type
+  var distinctSubmissionTypes = WranglerDocuments.aggregate([
+        {$match: {submission_id: submission_id}},
+        {$project: {submission_type: 1}},
+        {
+          $group: {
+            _id: null,
+            distinct_submission_types: {$addToSet: "$submission_type"}
+          }
+        },
+      ])[0]
+      .distinct_submission_types;
+  if (distinctSubmissionTypes.length !== 1) {
+    addSubmissionError("Mixed submission types");
+    return;
+  }
+
+  // we have successfully verified that the submission is ready for writing!
+
+  // add a bunch of jobs to write the files to the database
   var self = this;
-  var options = this.wranglerFile.options;
-  if (options === undefined) {
-    options = {};
+  var writingJobIds = [];
+  WranglerFiles.find({submission_id: submission_id})
+      .forEach(function (wranglerFile) {
+    var newJobId = Jobs.insert({
+      name: "SubmitWranglerFile",
+      user_id: self.job.user_id,
+      date_created: new Date(),
+      args: {
+        wrangler_file_id: wranglerFile._id,
+      },
+      prerequisite_job_id: [self.job._id],
+    });
+    writingJobIds.push(newJobId);
+  });
+
+  // add a job to set the submission as finished
+  var allPrerequisites = writingJobIds.concat([self.job._id]);
+  Jobs.insert({
+    name: "FinishWranglerSubmission",
+    user_id: self.job.user_id,
+    date_created: new Date(),
+    args: {
+      submission_id: submission_id,
+    },
+    prerequisite_job_id: allPrerequisites,
+  });
+};
+SubmitWranglerSubmission.prototype.onError = function (e) {
+  WranglerSubmissions.update(this.job.args.submission_id, {
+    $set: {
+      status: "editing",
+      errors: [
+        "Error running job: " + e.toString(),
+      ],
+    }
+  });
+};
+SubmitWranglerSubmission.prototype.onSuccess = function (result) {
+  WranglerSubmissions.update(this.job.args.submission_id, {
+    $set: {
+      status: "writing"
+    }
+  });
+};
+
+
+function FinishWranglerSubmission (job_id) {
+  Job.call(this, job_id);
+
+  this.submission = WranglerSubmissions.findOne(this.job.args.submission_id);
+  if (!this.submission) {
+    throw "Invalid submission_id";
   }
-  function setFileOptions(newOptions) {
-    _.extend(options, newOptions); // changes options
-    WranglerFiles.update(self.wranglerFile._id, {
+}
+FinishWranglerSubmission.prototype = Object.create(Job.prototype);
+FinishWranglerSubmission.prototype.constructor = FinishWranglerSubmission;
+FinishWranglerSubmission.prototype.run = function () {
+  var submission_id = this.submission._id;
+
+  // make sure there are no errors defined
+  var errors = this.submission.errors;
+  if (errors && errors.length > 0) {
+    return;
+  }
+
+  // make sure the status is writing
+  if (this.submission.status !== "writing") {
+    WranglerSubmissions.update({
       $set: {
-        "options": options
+        status: "editing"
+      },
+      $addToSet: {
+        errors: "Submission status not writing when trying to set as done"
       }
     });
   }
 
-  // try to guess file_type
-  if (extensionEquals(".vcf")) {
-    setFileOptions({ file_type: "mutationVCF" });
-  }
-  if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
-    setFileOptions({ file_type: "BD2KGeneExpression" });
-  }
+  // make sure each WranglerFile has { written_to_database: true }
+  WranglerFiles.find({
+      submission_id: submission_id,
+      written_to_database: {$ne: true},
+    })
+    .forEach(function (wranglerFile) {
+      var blobName = "undefined blob name";
+      blob = Blobs.findOne(wranglerFile.blob_id);
+      if (blob) {
+        blobName = blob.original.name;
+      }
 
-  // try to guess normalization
-  if (blobName.match(/raw_counts/g)) {
-    setFileOptions({ normalization: "raw_counts" });
-  } else if (blobName.match(/norm_counts/g)) {
-    setFileOptions({ normalization: "counts" });
-  } else if (blobName.match(/norm_tpm/g)) {
-    setFileOptions({ normalization: "tpm" });
-  } else if (blobName.match(/norm_fpkm/g)) {
-    setFileOptions({ normalization: "fpkm" });
-  }
+      WranglerSubmissions.update(submission_id, {
+        $set: {
+          status: "editing"
+        },
+        $addToSet: {
+          errors: "Wrangler file not written to database: " + blobName
+        }
+      });
+    });
+
+  // we did it!
+  WranglerSubmissions.update(this.job.args.submission_id, {
+    $set: {
+      status: "done"
+    }
+  });
 };
-GuessWranglerFileType.prototype.onSuccess = function (result) {
-  // NOTE: skips over direct prototype
-  Job.prototype.onSuccess.call(this, result);
-};
-
-
-function ParseWranglerFile (job_id) {
-  WranglerFileJob.call(this, job_id);
-}
-ParseWranglerFile.prototype = Object.create(WranglerFileJob.prototype);
-ParseWranglerFile.prototype.constructor = ParseWranglerFile;
-ParseWranglerFile.prototype.run = function () {
-  WranglerFileJob.prototype.run.call(this);
-
-  console.log("time to do some processing!");
+FinishWranglerSubmission.prototype.onError = function (e) {
+  WranglerSubmissions.update(this.job.args.submission_id, {
+    $set: {
+      status: "editing",
+      errors: [
+        "Error running job: " + e.toString(),
+      ],
+    }
+  });
 };
 
 
 JobClasses = {
-  Job: Job,
-  WranglerFileJob: WranglerFileJob,
-  GuessWranglerFileType: GuessWranglerFileType,
+  // usable classes (extend from Job)
   ParseWranglerFile: ParseWranglerFile,
+  SubmitWranglerFile: SubmitWranglerFile,
+  SubmitWranglerSubmission: SubmitWranglerSubmission,
+  FinishWranglerSubmission: FinishWranglerSubmission,
 };

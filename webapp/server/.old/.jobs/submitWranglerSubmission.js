@@ -1,5 +1,3 @@
-// TODO: get rid of all of these case statements
-
 var npmBinarySearch = Meteor.npmRequire('binary-search');
 
 function processSubmission (args) {
@@ -9,95 +7,6 @@ function processSubmission (args) {
   // var binarysearch = function (array, item) {
   //   return npmBinarySearch(array, item, function (a, b) { return a > b; });
   // };
-
-  // remove all previous submission errors
-  WranglerSubmissions.update(submission_id, { $set: { "errors": [] } });
-  var errorCount = 0; // increased with addSubmissionError
-
-  // define some helper functions
-  function setSubmissionStatus (newStatus) {
-    console.log("submission:", newStatus);
-    WranglerSubmissions.update(submission_id, {$set: {"status": newStatus}});
-  }
-  function addSubmissionError (description) {
-    if (errorCount < 25) {
-      WranglerSubmissions.update(submission_id, {
-        $addToSet: {
-          "errors": description,
-        }
-      });
-    }
-
-    if (errorCount !== 0) { // no need to set it twice
-      setSubmissionStatus("editing");
-    }
-    errorCount++;
-  }
-
-  // make sure each file is "done"
-  WranglerFiles.find({submission_id: submission_id}).forEach(function (doc) {
-    if (doc.status !== "done") {
-      addSubmissionError("File not done: " + doc.file_name);
-    }
-  });
-  if (errorCount !== 0) {
-    return;
-  }
-
-  // make sure there are some documents
-  var totalCount = WranglerDocuments
-      .find({submission_id: submission_id})
-      .count();
-  if (totalCount === 0) {
-    addSubmissionError("No documents present");
-    return;
-  }
-
-  // make sure we have only one type of submission type
-  var distinctSubmissionTypes = WranglerDocuments.aggregate([
-        {$match: {submission_id: submission_id}},
-        {$project: {submission_type: 1}},
-        {
-          $group: {
-            _id: null,
-            distinct_submission_types: {$addToSet: "$submission_type"}
-          }
-        },
-      ])[0]
-      .distinct_submission_types;
-  if (distinctSubmissionTypes.length !== 1) {
-    addSubmissionError("Mixed document types");
-    return;
-  }
-
-  // figure out the right method for doing the rest
-  var submissionHandler = wranglerSubmissionHandlers[distinctSubmissionTypes[0]];
-  if (submissionHandler && submissionHandler.validate) {
-    var errors = submissionHandler.validate(submission_id);
-    if (errors && errors.length > 0) {
-      errors.forEach(function (description) {
-        addSubmissionError(description);
-      });
-      return;
-    }
-
-    setSubmissionStatus("writing");
-
-    var emitter = new EventEmitter();
-    submissionHandler.writeToDatabase(submission_id)
-      .then(Meteor.bindEnvironment(function () {
-        console.log("the thing has resolved");
-        setSubmissionStatus("done");
-        emitter.emit("end");
-      }));
-    return emitter;
-  } else {
-    var error = "Error: submission handler not defined";
-    addSubmissionError(error);
-    return {
-      error: error
-    };
-  }
 
 
 

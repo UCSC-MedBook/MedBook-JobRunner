@@ -2,35 +2,25 @@ function runNextJob () {
   // grab the first job
   var mongoJob = Jobs.findOne({ "status": "waiting" },
       { sort: [["date_modified", "ascending"]] });
+
+  function retryLater (error_description) {
+    Jobs.update(mongoJob._id, {
+      $set: {
+        status: "waiting",
+        error_description: error_description,
+      },
+      $inc: { "retry_count": 1 }
+    });
+  }
+
   if (mongoJob) {
-    var job_id = mongoJob._id;
-
-    // NOTE: using var because it shouldn't have function scope
-    var retryLater = function (error_description) {
-      Jobs.update(job_id, {
-        $set: {
-          status: "waiting",
-          error_description: error_description,
-        },
-        $inc: { "retry_count": 1 }
-      });
-    };
-
     try {
-      // check to see if another job is being run by the same user
-      if (Jobs.findOne({
-            status: "running",
-            user_id: mongoJob.user_id,
-          })) {
-        console.log("already running a job for this user");
-      }
-
       // check to see if something else has to be done first
       var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
       if (!mustHaveFinished || mustHaveFinished.status === "done") {
         // try to claim the job as ours
         var updateCount = Jobs.update({
-          _id: job_id,
+          _id: mongoJob._id,
           status: "waiting",
         }, {
           $set: { status: "running" },
@@ -45,7 +35,7 @@ function runNextJob () {
         // get the job's class
         var jobClass = JobClasses[mongoJob.name];
         if (!jobClass) {
-          Jobs.update(job_id, {
+          Jobs.update(mongoJob._id, {
             $set: {
               status: "error",
               error_description: "job class not defined",
@@ -59,7 +49,7 @@ function runNextJob () {
           job = new jobClass(mongoJob._id);
         } catch (e) {
           console.log("Error creating job object:", e);
-          Jobs.update(job_id, {
+          Jobs.update(mongoJob._id, {
             $set: {
               status: "error",
               error_description: e.toString(),
@@ -73,25 +63,56 @@ function runNextJob () {
           return;
         }
 
+        // helper if things get bad
+        var nope = function (reason) {
+          var errorWarningUser;
+          try {
+            job.onError(reason);
+          } catch (e) {
+            errorWarningUser = e;
+          }
+
+          var error_description = "Reason for rejection: " + reason + ".";
+          console.log("reason for rejection:", reason);
+          if (errorWarningUser) {
+            error_description += " Error calling onError: " + errorWarningUser;
+          }
+          Jobs.update(mongoJob._id, {
+            $set: {
+              status: "error",
+              error_description: error_description,
+            }
+          });
+        };
+
         // run the job
-        try {
-          BlueBird.resolve(job.run())
-              .then(Meteor.bindEnvironment(function (result) {
-                console.log("result of job.run resolution:", result);
+        try { // wrap so we can catch errors in job.run()
+          Bluebird.resolve(job.run())
+            .then(Meteor.bindEnvironment(function (result) {
+              console.log("result of job.run resolution:", result);
+              try {
                 job.onSuccess(result);
-              }))
-              .catch(function (reason) {
-                console.log("job was rejected for some reason:", reason);
-                job.onError(reason);
-              });
+
+                Jobs.update(mongoJob._id, {
+                  $set: { status: "done" }
+                });
+              } catch (e) {
+                console.log("e on onSuccess:", e);
+                console.log("typeof e:", typeof e);
+                for (var i in e) {
+                  console.log("i, e[i]:", i, e[i]);
+                }
+                nope(e);
+              }
+            }))
+            .catch(Meteor.bindEnvironment(nope));
         } catch (e) {
-          console.log("onError called with e:", e);
-          job.onError(e);
+          nope(e);
         }
       } else {
         // if there was an error with that one, there's an error with this one
         if (mustHaveFinished.status === "error") {
-          Jobs.update(job_id, {
+          Jobs.update(mongoJob._id, {
             $set: {
               status: "error",
               error_description: "error in prerequisite job",
@@ -103,7 +124,7 @@ function runNextJob () {
       }
     } catch (e) {
       console.log("internal server error:", e);
-      Jobs.update(job_id, {
+      Jobs.update(mongoJob._id, {
         $set: {
           status: "error",
           error_description: "internal server error: " + e.toString(),
