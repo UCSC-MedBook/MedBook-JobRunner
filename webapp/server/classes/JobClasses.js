@@ -103,10 +103,8 @@ ParseWranglerFile.prototype.run = function () {
   }
 
   // figure out which FileHandler to create
-  console.log("options.file_type:", options.file_type);
   var fileHandler = new FileHandlers[options.file_type]
       (self.wranglerFile._id, true);
-  console.log("fileHandler:", fileHandler);
   return fileHandler.parse();
 };
 ParseWranglerFile.prototype.onError = function (e) {

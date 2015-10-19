@@ -226,7 +226,7 @@ MutationVCF.prototype.parse = function () {
         }
 
         resolve();
-      }));
+      }, function (error) { reject(error); }));
   });
 };
 
@@ -251,7 +251,6 @@ RectangularFile.prototype.parse = function () {
         var line = lineObject.toString();
         var brokenTabs = line.split("\t");
         lineNumber++;
-        if (lineNumber % 1000 === 0) { console.log("lineNumber:", lineNumber); }
 
         // make sure file is rectangular
         if (tabCount === undefined) {
@@ -260,22 +259,24 @@ RectangularFile.prototype.parse = function () {
           var message = "File not rectangular. " +
               "Line " + lineNumber + " has " + brokenTabs.length +
               " columns, not " + tabCount;
+          console.log("The 'Unhandled rejection' below is handled in the " +
+              " 'end' event handler");
           deferred.reject(message);
-        } else {
-          this.parseLine.call(this, brokenTabs, lineNumber, line);
-          if (lineNumber % 1000 === 0) {
-            console.log("done with lineNumber:",lineNumber);
-          }
-          deferred.resolve();
         }
-      }))
+
+        if (lineNumber % 1000 === 0) { console.log("starting", lineNumber); }
+        self.parseLine.call(self, brokenTabs, lineNumber, line);
+        if (lineNumber % 1000 === 0) { console.log("done with ", lineNumber); }
+        deferred.resolve();
+      }, function (error) { reject(error); }))
       .on('end', Meteor.bindEnvironment(function () {
+        // console.log("linePromises.slice(0, 5:)", linePromises.slice(0, 5));
         Bluebird.all(linePromises)
           .then(Meteor.bindEnvironment(function () {
-            this.endOfFile.call(this);
+            self.endOfFile.call(self);
             resolve();
-          }));
-      }));
+          }, function (error) { reject(error); }));
+      }, function (error) { reject(error); }));
   });
 };
 RectangularFile.prototype.parseLine = function (brokenTabs, lineNumber, line) {
@@ -291,29 +292,6 @@ function RectangularGeneExpression (wrangler_file_id, isSimulation) {
 }
 RectangularGeneExpression.prototype = Object.create(RectangularFile.prototype);
 RectangularGeneExpression.prototype.constructor = RectangularGeneExpression;
-RectangularGeneExpression.prototype.expression2Insert =
-    function(gene, sampleLabels, expressionValues, normalization) {
-  // do some checks
-  if (sampleLabels.length !== expressionValues.length) {
-    throw "sampleLabels not the same length as expressionValues!";
-  }
-  if (!normalization) {
-    throw "normalization not set";
-  }
-
-  var setObject = {};
-  for (var index in sampleLabels) {
-    setObject["samples." + sampleLabels[index] + "." +
-        options.normalization] = parseFloat(expressionValues[index]);
-  }
-  expression2.upsert({
-    gene: gene,
-    Study_ID: this.submission.options.study_label,
-    Collaborations: [this.submission.options.collaboration_label],
-  }, {
-    $set: setObject
-  });
-};
 RectangularGeneExpression.prototype.validateGeneLabel = function (gene_label) {
   // // validate gene_label against gene_label database
   // var gene_label = brokenTabs[0];
@@ -344,6 +322,35 @@ RectangularGeneExpression.prototype.validateGeneLabel = function (gene_label) {
   //     });
   //   }
   // }
+};
+RectangularGeneExpression.prototype.expression2Insert =
+    function(gene, sampleLabels, expressionValues) {
+  // do some checks
+  if (sampleLabels.length !== expressionValues.length) {
+    throw "sampleLabels not the same length as expressionValues!";
+  }
+  this.validateGeneLabel.call(this, gene);
+
+  var setObject = {};
+  for (var index in sampleLabels) {
+    var value = expressionValues[index];
+
+    // make sure the values are actually numbers
+    if (isNaN(value)) {
+      throw "Not a valid value for " + gene_label +
+          " on line " + lineNumber + ": " + value;
+    }
+
+    setObject["samples." + sampleLabels[index] + "." +
+        this.wranglerFile.options.normalization] = parseFloat(value);
+  }
+  expression2.upsert({
+    gene: gene,
+    Study_ID: this.submission.options.study_label,
+    Collaborations: [this.submission.options.collaboration_label],
+  }, {
+    $set: setObject
+  });
 };
 
 
@@ -387,30 +394,27 @@ function getSampleLabel (brokenTabs, fileObject) {
     sample_label = parseSampleUUID(possibleStrings, fileObject.metadata.submission_id);
   }
 
-  console.log("sample_label:", sample_label);
   return sample_label;
 }
 BD2KGeneExpression.prototype.parseLine =
     function (brokenTabs, lineNumber, line) {
   if (lineNumber === 1) { // header line
-    this.gene_count = 0;
-    this.sample_label = getSampleLabel(brokenTabs, fileObject);
+    if (this.isSimulation) {
+      this.gene_count = 0;
+    }
 
+    this.sample_label = getSampleLabel(brokenTabs, this.blob);
     if (!this.sample_label) {
       throw "Error: could not parse sample label from header line or file name";
     }
   } else { // rest of file
-    this.gene_count++;
-
-    // make sure it's a number
-    var supposedValue = brokenTabs[1];
-    if (isNaN(supposedValue)) {
-      throw "Not a valid value for " + gene_label +
-          " on line " + lineNumber + ": " + supposedValue;
-    }
-
-    if (!this.isSimulation) {
-      this.expression2Insert.call(); // TODO: write this
+    if (this.isSimulation) {
+      this.gene_count++;
+    } else {
+      var sampleLabels = [this.sample_label];
+      var expressionStrings = brokenTabs.slice(1);
+      this.expression2Insert.call(this, brokenTabs[0],
+          sampleLabels, expressionStrings);
     }
   }
 };
