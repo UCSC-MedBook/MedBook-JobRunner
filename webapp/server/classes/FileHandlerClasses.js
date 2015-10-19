@@ -1,6 +1,17 @@
 // https://docs.google.com/drawings/d/1I8TVxsWXivIIxxwENUbExBQHZ1xE1D9Mdo09eTSMLj4/edit?usp=sharing
 
 var byLine = Meteor.npmRequire('byline');
+var npmBinarySearch = Meteor.npmRequire('binary-search');
+var binarysearch = function (array, item) {
+  return npmBinarySearch(array, item, function (a, b) {
+    if (a > b) {
+      return 1;
+    } else if (a < b) {
+      return -1;
+    }
+    return 0;
+  });
+};
 
 function FileHandler (wrangler_file_id, isSimulation) {
   this.wranglerFile = WranglerFiles.findOne(wrangler_file_id);
@@ -289,57 +300,53 @@ RectangularFile.prototype.endOfFile = function () {
 
 function RectangularGeneExpression (wrangler_file_id, isSimulation) {
   RectangularFile.call(this, wrangler_file_id, isSimulation);
+
+  // for use in validateGeneLabel
+  this.validGenes = expression2.aggregate([
+      {$match: {gene: {$exists: true}}},
+      {$project: {gene: 1}},
+      {
+        $group: {
+          _id: null,
+          validGenes: {$addToSet: "$gene"}
+        }
+      },
+    ])[0].validGenes;
+
+  this.validGenes.sort();
 }
 RectangularGeneExpression.prototype = Object.create(RectangularFile.prototype);
 RectangularGeneExpression.prototype.constructor = RectangularGeneExpression;
 RectangularGeneExpression.prototype.validateGeneLabel = function (gene_label) {
-  // // validate gene_label against gene_label database
-  // var gene_label = brokenTabs[0];
-  // var genes = Genes.find({
-    // $or: [
-    //   {gene: gene_label},
-    //   {"synonym": {$elemMatch: {$in: [gene_label]}}},
-    //   {"previous": {$elemMatch: {$in: [gene_label]}}}
-    // ]
-  // }).fetch();
-  // if (genes.length === 0) {
-  //   console.log("Unknown gene: " + gene_label);
-  //   // emitter.emit("error", message);
-  // } else if (genes.length > 1) {
-  //   console.log("Multiple gene matches found for " + gene_label);
-  //   // emitter.emit("error", message);
-  // } else {
-  //   var gene = genes[0];
-  //   if (gene_label !== gene.gene) {
-  //     // not the end of the world, we can map it
-  //     emitter.emit("document-insert", {
-  //       submission_type: "gene_expression",
-  //       document_type: "gene_label_map",
-  //       contents: {
-  //         old_label: gene_label,
-  //         new_label: gene.gene,
-  //       },
-  //     });
-  //   }
-  // }
+  // NOTE: couldn't think of the opposite of this statement
+  if (binarysearch(this.validGenes, gene_label) >= 0) {
+    return true;
+  } else {
+    throw "Invalid gene: " + gene_label;
+  }
+};
+RectangularGeneExpression.prototype.validateExpressionStrings =
+    function (expressionStrings) {
+  for (var index in expressionStrings) {
+    var valueString = expressionStrings[index];
+    if (isNaN(valueString)) {
+      throw "Error: Non-numerical expression value: " + valueString;
+    }
+  }
 };
 RectangularGeneExpression.prototype.expression2Insert =
-    function(gene, sampleLabels, expressionValues) {
+    function(gene, sampleLabels, expressionStrings) {
   // do some checks
-  if (sampleLabels.length !== expressionValues.length) {
-    throw "sampleLabels not the same length as expressionValues!";
+  if (sampleLabels.length !== expressionStrings.length) {
+    throw "Internal error: sampleLabels not the same length as " +
+        " expressionStrings!";
   }
-  this.validateGeneLabel.call(this, gene);
 
   var setObject = {};
   for (var index in sampleLabels) {
-    var value = expressionValues[index];
+    var value = expressionStrings[index];
 
-    // make sure the values are actually numbers
-    if (isNaN(value)) {
-      throw "Not a valid value for " + gene_label +
-          " on line " + lineNumber + ": " + value;
-    }
+
 
     setObject["samples." + sampleLabels[index] + "." +
         this.wranglerFile.options.normalization] = parseFloat(value);
@@ -408,11 +415,17 @@ BD2KGeneExpression.prototype.parseLine =
       throw "Error: could not parse sample label from header line or file name";
     }
   } else { // rest of file
+    var gene_label = brokenTabs[0];
+    var expressionStrings = brokenTabs.slice(1);
+
+    // error checking
+    this.validateGeneLabel.call(this, gene_label);
+    this.validateExpressionStrings.call(this, expressionStrings);
+
     if (this.isSimulation) {
       this.gene_count++;
     } else {
       var sampleLabels = [this.sample_label];
-      var expressionStrings = brokenTabs.slice(1);
       this.expression2Insert.call(this, brokenTabs[0],
           sampleLabels, expressionStrings);
     }
