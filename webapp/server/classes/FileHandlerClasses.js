@@ -1,4 +1,5 @@
-// https://docs.google.com/drawings/d/1I8TVxsWXivIIxxwENUbExBQHZ1xE1D9Mdo09eTSMLj4/edit?usp=sharing
+// https://docs.google.com/drawings/d/
+// 1I8TVxsWXivIIxxwENUbExBQHZ1xE1D9Mdo09eTSMLj4/edit?usp=sharing
 
 var byLine = Meteor.npmRequire('byline');
 var npmBinarySearch = Meteor.npmRequire('binary-search');
@@ -250,7 +251,10 @@ RectangularFile.prototype.constructor = RectangularFile;
 RectangularFile.prototype.parse = function () {
   var self = this;
   return new Q.Promise(function (resolve, reject) {
-    var lineBufferMax = 500;
+    // lineBufferMax chosen based on crude yet effective testing:
+    // https://docs.google.com/spreadsheets/d/
+    // 1wA4KPXEhE4eroZaiKUL92dP0Gi1uFG8qCGSDjCaMcwo/edit?usp=sharing
+    var lineBufferMax = 50;
     var lineBufferPromises = [];
     var allLinePromises = [];
     var lineNumber = 0; // starts at one
@@ -293,9 +297,7 @@ RectangularFile.prototype.parse = function () {
           deferred.reject(message);
         }
 
-        if (thisLineNumber % 1000 === 0) { console.log("starting", thisLineNumber); }
         self.parseLine.call(self, brokenTabs, thisLineNumber, line);
-        if (thisLineNumber % 1000 === 0) { console.log("done with ", thisLineNumber); }
         deferred.resolve();
       }, function (error) { reject(error); }))
       .on('end', Meteor.bindEnvironment(function () {

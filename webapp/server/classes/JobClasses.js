@@ -319,26 +319,14 @@ FinishWranglerSubmission.prototype.run = function () {
   }
 
   // make sure each WranglerFile has { written_to_database: true }
-  WranglerFiles.find({
-      submission_id: submission_id,
-      written_to_database: {$ne: true},
-    })
-    .forEach(function (wranglerFile) {
-      var blobName = "undefined blob name";
-      blob = Blobs.findOne(wranglerFile.blob_id);
-      if (blob) {
-        blobName = blob.original.name;
-      }
-
-      WranglerSubmissions.update(submission_id, {
-        $set: {
-          status: "editing"
-        },
-        $addToSet: {
-          errors: "Wrangler file not written to database: " + blobName
-        }
-      });
-    });
+  var notWrittenCursor = WranglerFiles.find({
+    submission_id: submission_id,
+    written_to_database: {$ne: true},
+  });
+  if (notWrittenCursor.count() > 0) {
+    this.retry("files not done being written");
+    return;
+  }
 
   // we did it!
   WranglerSubmissions.update(this.job.args.submission_id, {

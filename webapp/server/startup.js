@@ -91,12 +91,17 @@ function runNextJob () {
           Q.when(job.run())
             .then(Meteor.bindEnvironment(function (result) {
               try {
-                job.onSuccess(result);
+                if (job.reasonForRetry) {
+                  retryLater(job.reasonForRetry);
+                  console.log("job: retrying");
+                } else {
+                  job.onSuccess(result);
 
-                Jobs.update(mongoJob._id, {
-                  $set: { status: "done" }
-                });
-                console.log("job: done");
+                  Jobs.update(mongoJob._id, {
+                    $set: { status: "done" }
+                  });
+                  console.log("job: done");
+                }
               } catch (e) {
                 console.log("e on onSuccess:", e);
                 console.log("typeof e:", typeof e);
