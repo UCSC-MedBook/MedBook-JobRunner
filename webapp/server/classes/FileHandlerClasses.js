@@ -365,11 +365,9 @@ RectangularGeneExpression.prototype.expression2Insert =
   var setObject = {};
   for (var index in sampleLabels) {
     var value = expressionStrings[index];
-
-
-
-    setObject["samples." + sampleLabels[index] + "." +
-        this.wranglerFile.options.normalization] = parseFloat(value);
+    var normalization = this.wranglerFile.options.normalization;
+    var setAttribute = "samples." + sampleLabels[index] + "." + normalization;
+    setObject[setAttribute] = parseFloat(value);
   }
   expression2.upsert({
     gene: gene,
@@ -446,7 +444,7 @@ BD2KGeneExpression.prototype.parseLine =
       this.gene_count++;
     } else {
       var sampleLabels = [this.sample_label];
-      this.expression2Insert.call(this, brokenTabs[0],
+      this.expression2Insert.call(this, gene_label,
           sampleLabels, expressionStrings);
     }
   }
@@ -502,8 +500,90 @@ BD2KSampleLabelMap.prototype.parseLine =
 };
 
 
+function TCGAGeneExpression (wrangler_file_id, isSimulation) {
+  RectangularGeneExpression.call(this, wrangler_file_id, isSimulation);
+}
+TCGAGeneExpression.prototype =
+    Object.create(RectangularGeneExpression.prototype);
+TCGAGeneExpression.prototype.constructor = TCGAGeneExpression;
+function verifySampleLabels(sampleLabels) {
+  for (var index in sampleLabels) {
+    var label = sampleLabels[index];
+    var found = wrangleSampleLabel(label);
+    if (found !== label) {
+      throw "could not find sample label in " + label;
+    }
+  }
+}
+TCGAGeneExpression.prototype.parseLine =
+    function (brokenTabs, lineNumber, line) {
+  if (lineNumber === 1) { // header line
+    if (this.isSimulation) {
+      this.gene_count = 0;
+    }
+
+    if (brokenTabs[0] !== "Hybridization REF") {
+      throw "expected 'Hybridization REF' to start file";
+    }
+
+    this.sampleLabels = brokenTabs.slice(1);
+    verifySampleLabels(this.sampleLabels);
+  } else if (lineNumber === 2) { // second header line
+    if (brokenTabs[0] !== "gene_id") {
+      throw "expected 'gene_id' to lead second line";
+    }
+
+    for (var index = 1; index < brokenTabs.length; index++) {
+      var cellText = brokenTabs[index];
+      if (cellText !== "normalized_count") {
+        throw "expected 'normalized_count' for normalization line";
+      }
+    }
+  } else { // rest of file
+    var brokenOnPipe = brokenTabs[0].split("|");
+    if (brokenOnPipe.length !== 2) {
+      throw "expected GENE|ID in gene_id field";
+    }
+
+    var gene_label = brokenOnPipe[0];
+    if (gene_label === "?") {
+      console.log("ignoring gene: " + brokenTabs[0]);
+      return;
+    }
+    var expressionStrings = brokenTabs.slice(1);
+
+    // error checking
+    this.validateGeneLabel.call(this, gene_label);
+    this.validateExpressionStrings.call(this, expressionStrings);
+
+    if (this.isSimulation) {
+      this.gene_count++;
+    } else {
+      this.expression2Insert.call(this, gene_label,
+          this.sampleLabels, expressionStrings);
+    }
+  }
+};
+TCGAGeneExpression.prototype.endOfFile = function () {
+  if (this.isSimulation) {
+    for (var index in this.sampleLabels) {
+      this.insertWranglerDocument.call(this, {
+        submission_type: "gene_expression",
+        document_type: "sample_normalization",
+        contents: {
+          sample_label: this.sampleLabels[index],
+          normalization: this.wranglerFile.options.normalization,
+          gene_count: this.gene_count,
+        },
+      });
+    }
+  }
+};
+
+
 FileHandlers = {
   MutationVCF: MutationVCF,
   BD2KGeneExpression: BD2KGeneExpression,
   BD2KSampleLabelMap: BD2KSampleLabelMap,
+  TCGAGeneExpression: TCGAGeneExpression,
 };

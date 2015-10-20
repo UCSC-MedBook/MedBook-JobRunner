@@ -14,10 +14,21 @@ wrangleSampleLabel = function (text) {
     return matches[0] + pro;
   }
 
+  // match weird .vcf file names (e.g. "DTB-OH-014-Pro-AC.anno.fix.vcf")
   // http://regexr.com/3c0kn
   matches = text.match(/DTB-[A-Z]{1,4}-[0-9]{3}/g);
   if (matches) {
     return matches[0] + pro;
+  }
+
+  // match TCGA sample labels (e.g. "TCGA-02-0055-01A-01R-1849-01")
+  // https://wiki.nci.nih.gov/display/TCGA/TCGA+barcode
+  // http://regexr.com/3c1b7
+  var tcgaRegex =
+  /TCGA-[A-Z0-9]{2}-[A-Z0-9]{1,4}-[0-9]{2}[A-Z]-[0-9]{2}[DGHRTWX]-[A-Z0-9]{4}-[0-9]{2}/g;
+  matches = text.match(tcgaRegex);
+  if (matches) {
+    return matches[0];
   }
 };
 

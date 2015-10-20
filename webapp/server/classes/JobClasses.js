@@ -101,6 +101,9 @@ ParseWranglerFile.prototype.run = function () {
       setFileOptions({ normalization: "fpkm" });
     }
   }
+  if (options.file_type === "TCGAGeneExpression") {
+    setFileOptions({ normalization: "counts" });
+  }
 
   if (!options.file_type) {
     throw "file type could not be inferred";

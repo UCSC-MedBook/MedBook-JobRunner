@@ -93,7 +93,7 @@ function runNextJob () {
               try {
                 if (job.reasonForRetry) {
                   retryLater(job.reasonForRetry);
-                  console.log("job: retrying");
+                  console.log("job: retrying - " + job.reasonForRetry);
                 } else {
                   job.onSuccess(result);
 
