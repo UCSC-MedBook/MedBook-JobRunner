@@ -474,28 +474,30 @@ BD2KSampleLabelMap.prototype =
 BD2KSampleLabelMap.prototype.constructor = BD2KSampleLabelMap;
 BD2KSampleLabelMap.prototype.parseLine =
     function (brokenTabs, lineNumber, line) {
-  if (lineNumber === 1) {
-    this.headerLine = brokenTabs;
-  } else {
-    var sample_label = brokenTabs[headerLine.indexOf("Sample_Name")];
-    var sample_uuid = brokenTabs[headerLine.indexOf("Sample_UUID")];
+  if (this.isSimulation) {
+    if (lineNumber === 1) {
+      this.headerLine = brokenTabs;
+    } else {
+      var sample_label = brokenTabs[this.headerLine.indexOf("Sample_Name")];
+      var sample_uuid = brokenTabs[this.headerLine.indexOf("Sample_UUID")];
 
-    // some error checking
-    if (!sample_label) {
-      throw "No column with header 'Sample_Name'";
-    }
-    if (!sample_uuid) {
-      throw "No column with header 'Sample_UUID'";
-    }
+      // some error checking
+      if (!sample_label) {
+        throw "No column with header 'Sample_Name'";
+      }
+      if (!sample_uuid) {
+        throw "No column with header 'Sample_UUID'";
+      }
 
-    this.insertWranglerDocument.call(this, {
-      submission_type: "gene_expression",
-      document_type: "sample_label_map",
-      contents: {
-        sample_label: sample_label,
-        sample_uuid: sample_uuid,
-      },
-    });
+      this.insertWranglerDocument.call(this, {
+        submission_type: "gene_expression",
+        document_type: "sample_label_map",
+        contents: {
+          sample_label: sample_label,
+          sample_uuid: sample_uuid,
+        },
+      });
+    }
   }
 };
 
@@ -503,4 +505,5 @@ BD2KSampleLabelMap.prototype.parseLine =
 FileHandlers = {
   MutationVCF: MutationVCF,
   BD2KGeneExpression: BD2KGeneExpression,
+  BD2KSampleLabelMap: BD2KSampleLabelMap,
 };
