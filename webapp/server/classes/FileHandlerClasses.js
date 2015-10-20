@@ -292,8 +292,6 @@ RectangularFile.prototype.parse = function () {
           var message = "File not rectangular. " +
               "Line " + thisLineNumber + " has " + brokenTabs.length +
               " columns, not " + tabCount;
-          console.log("The 'Unhandled rejection' below is handled in the " +
-              " 'end' event handler");
           deferred.reject(message);
         }
 

@@ -3,7 +3,36 @@ function runNextJob () {
   var mongoJob = Jobs.findOne({ "status": "waiting" },
       { sort: [["date_modified", "ascending"]] });
 
+  // if there's no job available, quit
+  if (!mongoJob) {
+    return;
+  }
+
+  // try to claim the job as ours
+  var updateCount = Jobs.update({
+    _id: mongoJob._id,
+    status: "waiting",
+  }, {
+    $set: { status: "running" },
+    $unset: { error_description: 1 },
+  });
+  if (updateCount === 0) { // make sure we really got it
+    return;
+  }
+
+  // make sure the user is only running one task
+  if (Jobs.find({
+        status: "running",
+        user_id: mongoJob.user_id,
+      }).count() > 1) {
+    console.log("thrown out because already running something");
+    return;
+  }
+
+  console.log("job: running - ", mongoJob.name);
+
   function retryLater (error_description) {
+    console.log("job: retrying - " + error_description);
     Jobs.update(mongoJob._id, {
       $set: {
         status: "waiting",
@@ -13,130 +42,94 @@ function runNextJob () {
     });
   }
 
-  if (mongoJob) {
-    try {
-      // check to see if something else has to be done first
-      var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
-      if (!mustHaveFinished || mustHaveFinished.status === "done") {
-        // try to claim the job as ours
-        var updateCount = Jobs.update({
-          _id: mongoJob._id,
-          status: "waiting",
-        }, {
-          $set: { status: "running" },
-          $unset: { error_description: 1 },
-        });
-
-        // make sure we actually got it (another JobRunner could have stolen it)
-        if (updateCount === 0) {
-          return;
-        }
-
-        // get the job's class
-        var jobClass = JobClasses[mongoJob.name];
-        if (!jobClass) {
-          Jobs.update(mongoJob._id, {
-            $set: {
-              status: "error",
-              error_description: "job class not defined",
-            }
-          });
-        }
-
-        // create a Job object
-        var job;
-        try {
-          job = new jobClass(mongoJob._id);
-        } catch (e) {
-          console.log("Error creating job object:", e);
-          Jobs.update(mongoJob._id, {
-            $set: {
-              status: "error",
-              error_description: e.toString(),
-            }
-          });
-          return;
-        }
-
-        if (job.reasonForRetry) {
-          retryLater(job.reasonForRetry);
-          return;
-        }
-
-        // helper if things get bad
-        var nope = function (reason) {
-          var errorWarningUser;
-          try {
-            job.onError(reason);
-          } catch (e) {
-            errorWarningUser = e;
-          }
-
-          var error_description = "Reason for rejection: " + reason + ".";
-          console.log("reason for rejection:", reason);
-          if (errorWarningUser) {
-            error_description += " Error calling onError: " + errorWarningUser;
-          }
-          Jobs.update(mongoJob._id, {
-            $set: {
-              status: "error",
-              error_description: error_description,
-            }
-          });
-        };
-
-        console.log("about to run:", mongoJob.name);
-        // run the job
-        try { // wrap so we can catch errors in job.run()
-          Q.when(job.run())
-            .then(Meteor.bindEnvironment(function (result) {
-              try {
-                if (job.reasonForRetry) {
-                  retryLater(job.reasonForRetry);
-                  console.log("job: retrying - " + job.reasonForRetry);
-                } else {
-                  job.onSuccess(result);
-
-                  Jobs.update(mongoJob._id, {
-                    $set: { status: "done" }
-                  });
-                  console.log("job: done");
-                }
-              } catch (e) {
-                console.log("e on onSuccess:", e);
-                console.log("typeof e:", typeof e);
-                for (var i in e) {
-                  console.log("i, e[i]:", i, e[i]);
-                }
-                nope(e);
-              }
-            }))
-            .catch(Meteor.bindEnvironment(nope));
-        } catch (e) {
-          nope(e);
-        }
-      } else {
-        // if there was an error with that one, there's an error with this one
-        if (mustHaveFinished.status === "error") {
-          Jobs.update(mongoJob._id, {
-            $set: {
-              status: "error",
-              error_description: "error in prerequisite job",
-            }
-          });
-        } else {
-          retryLater("not finished with prerequisite job");
-        }
-      }
-    } catch (e) {
-      console.log("internal server error:", e);
+  // check to see if something else has to be done first
+  var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
+  if (mustHaveFinished && mustHaveFinished.status !== "done") {
+    // if there was an error with that one, there's an error with this one
+    if (mustHaveFinished.status === "error") {
       Jobs.update(mongoJob._id, {
         $set: {
           status: "error",
-          error_description: "internal server error: " + e.toString(),
+          error_description: "error in prerequisite job",
         }
       });
+    } else {
+      retryLater("not finished with prerequisite job");
     }
+    return;
+  }
+
+  // get the job's class
+  var jobClass = JobClasses[mongoJob.name];
+  if (!jobClass) {
+    Jobs.update(mongoJob._id, {
+      $set: {
+        status: "error",
+        error_description: "job class not defined",
+      }
+    });
+  }
+
+  // create a Job object
+  var job;
+  try {
+    job = new jobClass(mongoJob._id);
+  } catch (e) {
+    console.log("Error creating job object:", e);
+    Jobs.update(mongoJob._id, {
+      $set: {
+        status: "error",
+        error_description: e.toString(),
+      }
+    });
+    return;
+  }
+
+  // if we should retry, don't bother running the job
+  if (job.reasonForRetry) {
+    retryLater(job.reasonForRetry);
+    return;
+  }
+
+  // define helper in case things get bad
+  var nope = function (reason) {
+    var errorWarningUser;
+    try {
+      job.onError(reason);
+    } catch (e) {
+      errorWarningUser = e;
+    }
+
+    var error_description = "Reason for rejection: " + reason + ".";
+    console.log("job: rejected - ", reason);
+    if (errorWarningUser) {
+      error_description += " Error calling onError: " + errorWarningUser;
+    }
+    Jobs.update(mongoJob._id, {
+      $set: {
+        status: "error",
+        error_description: error_description,
+      }
+    });
+  };
+
+  // run the job
+  try { // wrap so we can catch errors in job.run()
+    Q.when(job.run())
+      .then(Meteor.bindEnvironment(function (result) {
+        if (job.reasonForRetry) {
+          retryLater(job.reasonForRetry);
+        } else {
+          job.onSuccess(result);
+          Jobs.update(mongoJob._id, {
+            $set: { status: "done" }
+          });
+          console.log("job: done");
+        }
+      }), function (error) { nope(error); })
+      .catch(Meteor.bindEnvironment(nope));
+  } catch (e) {
+    nope(e);
   }
 }
 
