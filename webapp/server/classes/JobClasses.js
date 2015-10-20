@@ -102,9 +102,17 @@ ParseWranglerFile.prototype.run = function () {
     }
   }
 
+  if (!options.file_type) {
+    throw "file type could not be inferred";
+  }
+
+  var fileHandlerClass = FileHandlers[options.file_type];
+  if (!fileHandlerClass) {
+    throw "file handler not yet defined";
+  }
+
   // figure out which FileHandler to create
-  var fileHandler = new FileHandlers[options.file_type]
-      (self.wranglerFile._id, true);
+  var fileHandler = new fileHandlerClass(self.wranglerFile._id, true);
   return fileHandler.parse();
 };
 ParseWranglerFile.prototype.onError = function (e) {
@@ -197,7 +205,7 @@ SubmitWranglerSubmission.prototype.run = function () {
   // make sure each file is "done"
   WranglerFiles.find({submission_id: submission_id}).forEach(function (doc) {
     if (doc.status !== "done") {
-      addSubmissionError("File not done: " + doc.file_name);
+      addSubmissionError("File not done: " + doc.blob_name);
     }
   });
   if (errorCount !== 0) {
@@ -232,6 +240,11 @@ SubmitWranglerSubmission.prototype.run = function () {
   }
 
   // we have successfully verified that the submission is ready for writing!
+  WranglerSubmissions.update(this.job.args.submission_id, {
+    $set: {
+      status: "writing"
+    }
+  });
 
   // add a bunch of jobs to write the files to the database
   var self = this;
@@ -269,13 +282,6 @@ SubmitWranglerSubmission.prototype.onError = function (e) {
       errors: [
         "Error running job: " + e.toString(),
       ],
-    }
-  });
-};
-SubmitWranglerSubmission.prototype.onSuccess = function (result) {
-  WranglerSubmissions.update(this.job.args.submission_id, {
-    $set: {
-      status: "writing"
     }
   });
 };

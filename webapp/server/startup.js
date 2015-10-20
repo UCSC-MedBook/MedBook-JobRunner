@@ -85,17 +85,18 @@ function runNextJob () {
           });
         };
 
+        console.log("about to run:", mongoJob.name);
         // run the job
         try { // wrap so we can catch errors in job.run()
-          Bluebird.resolve(job.run())
+          Q.when(job.run())
             .then(Meteor.bindEnvironment(function (result) {
-              console.log("result of job.run resolution:", result);
               try {
                 job.onSuccess(result);
 
                 Jobs.update(mongoJob._id, {
                   $set: { status: "done" }
                 });
+                console.log("job: done");
               } catch (e) {
                 console.log("e on onSuccess:", e);
                 console.log("typeof e:", typeof e);

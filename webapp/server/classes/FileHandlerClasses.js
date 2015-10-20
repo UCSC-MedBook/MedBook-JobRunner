@@ -50,7 +50,7 @@ FileHandler.prototype.insertWranglerDocument = function (metadataAndContents) {
 };
 FileHandler.prototype.blobAsString = function() {
   var self = this;
-  return new Bluebird(function (resolve, reject) {
+  return new Q.Promise(function (resolve, reject) {
     var blobText = "";
     var stream = self.blob.createReadStream("blobs")
       .on('data', function (chunk) {
@@ -104,13 +104,13 @@ function setHighLevel(highLevelObject, key, newValue) {
               (newValue === "MODERATE" && highLevelObject[key] === "LOW")) {
             highLevelObject[key] = newValue;
           } else {
-            console.log("two different values for effect_impact in same mutationDoc, even with the LOW/MODIFIER code:",
-                highLevelObject[key], newValue);
+            // console.log("two different values for effect_impact in same mutationDoc, even with the LOW/MODIFIER code:",
+            //     highLevelObject[key], newValue);
           }
         }
       } else {
-        console.log("two different values for " + key + " in same mutationDoc:",
-            highLevelObject[key], newValue, "(using second)");
+        // console.log("two different values for " + key + " in same mutationDoc:",
+        //     highLevelObject[key], newValue, "(using second)");
         highLevelObject[key] = newValue;
       }
     }
@@ -118,7 +118,7 @@ function setHighLevel(highLevelObject, key, newValue) {
 }
 MutationVCF.prototype.parse = function () {
   var self = this;
-  return new Bluebird(function (resolve, reject) {
+  return Q.Promise(function (resolve, reject) {
     self.blobAsString()
       .then(Meteor.bindEnvironment(function (blobText) {
         var data = ParseVCF(blobText);
@@ -249,40 +249,58 @@ RectangularFile.prototype = Object.create(FileHandler.prototype);
 RectangularFile.prototype.constructor = RectangularFile;
 RectangularFile.prototype.parse = function () {
   var self = this;
-  return new Bluebird(function (resolve, reject) {
-    var linePromises = [];
+  return new Q.Promise(function (resolve, reject) {
+    var lineBufferMax = 500;
+    var lineBufferPromises = [];
+    var allLinePromises = [];
     var lineNumber = 0; // starts at one
     var tabCount;
 
-    byLine(self.blob.createReadStream("blobs"))
-      .on('data', Meteor.bindEnvironment(function (lineObject) {
-        var deferred = Bluebird.defer();
-        linePromises.push(deferred.promise);
+    // store stream in a variable so it can be paused
+    var bylineStream = byLine(self.blob.createReadStream("blobs"));
+    bylineStream.on('data', Meteor.bindEnvironment(function (lineObject) {
+        var deferred = Q.defer();
+        lineBufferPromises.push(deferred.promise);
+        allLinePromises.push(deferred.promise);
+
+        // reads up to lineBufferMax lines and then waits for those lines
+        // to finish completely before moving on
+        if (lineBufferPromises.length >= lineBufferMax) {
+          bylineStream.pause();
+          Q.allSettled(lineBufferPromises)
+            .then(Meteor.bindEnvironment(function (values) {
+              lineBufferPromises = [];
+              bylineStream.resume();
+            }));
+        }
 
         var line = lineObject.toString();
         var brokenTabs = line.split("\t");
+
+        // so that it has function scope
         lineNumber++;
+        var thisLineNumber = lineNumber;
 
         // make sure file is rectangular
         if (tabCount === undefined) {
           tabCount = brokenTabs.length;
         } else if (tabCount !== brokenTabs.length) {
           var message = "File not rectangular. " +
-              "Line " + lineNumber + " has " + brokenTabs.length +
+              "Line " + thisLineNumber + " has " + brokenTabs.length +
               " columns, not " + tabCount;
           console.log("The 'Unhandled rejection' below is handled in the " +
               " 'end' event handler");
           deferred.reject(message);
         }
 
-        if (lineNumber % 1000 === 0) { console.log("starting", lineNumber); }
-        self.parseLine.call(self, brokenTabs, lineNumber, line);
-        if (lineNumber % 1000 === 0) { console.log("done with ", lineNumber); }
+        if (thisLineNumber % 1000 === 0) { console.log("starting", thisLineNumber); }
+        self.parseLine.call(self, brokenTabs, thisLineNumber, line);
+        if (thisLineNumber % 1000 === 0) { console.log("done with ", thisLineNumber); }
         deferred.resolve();
       }, function (error) { reject(error); }))
       .on('end', Meteor.bindEnvironment(function () {
-        // console.log("linePromises.slice(0, 5:)", linePromises.slice(0, 5));
-        Bluebird.all(linePromises)
+        // console.log("allLinePromises.slice(0, 5:)", allLinePromises.slice(0, 5));
+        Q.all(allLinePromises)
           .then(Meteor.bindEnvironment(function () {
             self.endOfFile.call(self);
             resolve();

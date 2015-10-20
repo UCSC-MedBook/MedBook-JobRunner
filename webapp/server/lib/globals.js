@@ -1,5 +1,5 @@
 // actual globals
-Bluebird = Meteor.npmRequire('bluebird');
+Q = Meteor.npmRequire('q');
 
 wrangleSampleLabel = function (text) {
   // TODO: what if it's ProR3 or something?
