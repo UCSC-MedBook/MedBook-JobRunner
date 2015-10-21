@@ -77,6 +77,10 @@ XLSWorkbook.prototype.parse = function () {
   self.blobAsString()
     .then(Meteor.bindEnvironment(function (blobText) {
       /* convert data to binary string */
+
+      /* Call XLSX */
+      // console.log("blobText:", blobText);
+
       // var data = new Uint8Array(blobText);
       // var arr = [];
       // for(var i = 0; i != data.length; ++i) {
@@ -84,14 +88,12 @@ XLSWorkbook.prototype.parse = function () {
       // }
       // var bstr = arr.join("");
 
-      /* Call XLSX */
-      console.log("blobText:", blobText);
       var workbook = XLSX.read(blobText, {type:"binary"});
 
       /* DO SOMETHING WITH workbook HERE */
       self.parseWorkbook.call(self, null);
       deferred.resolve();
-    }, function (error) { deferred.reject(error); }));
+    }, deferred.reject));
 
   return deferred.promise;
 };
@@ -284,7 +286,7 @@ MutationVCF.prototype.parse = function () {
         }
 
         resolve();
-      }, function (error) { reject(error); }));
+      }, reject));
   });
 };
 
@@ -343,7 +345,7 @@ RectangularFile.prototype.parse = function () {
 
         self.parseLine.call(self, brokenTabs, thisLineNumber, line);
         deferred.resolve();
-      }, function (error) { reject(error); }))
+      }, reject(error)))
       .on('end', Meteor.bindEnvironment(function () {
         // console.log("allLinePromises.slice(0, 5:)", allLinePromises.slice(0, 5));
         Q.all(allLinePromises)

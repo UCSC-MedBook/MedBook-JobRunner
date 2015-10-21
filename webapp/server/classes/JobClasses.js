@@ -64,7 +64,7 @@ ParseWranglerFile.prototype.run = function () {
     options = {};
   }
   function setFileOptions(newOptions) {
-    _.extend(options, newOptions); // keeps options up to doate
+    _.extend(options, newOptions); // keeps `options` up to doate
     WranglerFiles.update(self.wranglerFile._id, {
       $set: {
         "options": options
@@ -111,7 +111,12 @@ ParseWranglerFile.prototype.run = function () {
   }
 
   if (!options.file_type) {
-    throw "file type could not be inferred";
+    WranglerFiles.update(this.wranglerFile._id, {
+      $set: {
+        error_description: "Click to select a file type"
+      }
+    });
+    return;
   }
 
   var fileHandlerClass = FileHandlers[options.file_type];
