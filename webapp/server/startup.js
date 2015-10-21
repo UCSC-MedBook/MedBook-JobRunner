@@ -115,6 +115,7 @@ function runNextJob () {
 
   // run the job
   try { // wrap so we can catch errors in job.run()
+    var boundNope = Meteor.bindEnvironment(nope);
     Q.when(job.run())
       .then(Meteor.bindEnvironment(function (result) {
         if (job.reasonForRetry) {
@@ -126,8 +127,8 @@ function runNextJob () {
           });
           console.log("job: done");
         }
-      }), function (error) { nope(error); })
-      .catch(Meteor.bindEnvironment(nope));
+      }), boundNope)
+      .catch(boundNope);
   } catch (e) {
     nope(e);
   }

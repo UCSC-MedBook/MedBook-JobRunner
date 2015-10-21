@@ -86,6 +86,9 @@ ParseWranglerFile.prototype.run = function () {
     if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
       setFileOptions({ file_type: "BD2KGeneExpression" });
     }
+    if (extensionEquals(".xls") || extensionEquals("xlsx")) {
+      setFileOptions({ file_type: "BasicClinical" });
+    }
   }
 
   // try to guess normalization
@@ -101,6 +104,8 @@ ParseWranglerFile.prototype.run = function () {
       setFileOptions({ normalization: "fpkm" });
     }
   }
+
+  // force certain options
   if (options.file_type === "TCGAGeneExpression") {
     setFileOptions({ normalization: "counts" });
   }
@@ -111,7 +116,7 @@ ParseWranglerFile.prototype.run = function () {
 
   var fileHandlerClass = FileHandlers[options.file_type];
   if (!fileHandlerClass) {
-    throw "file handler not yet defined";
+    throw "file handler not yet defined (" + options.file_type + ")";
   }
 
   // figure out which FileHandler to create

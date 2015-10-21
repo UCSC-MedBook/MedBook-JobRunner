@@ -2,6 +2,7 @@
 // 1I8TVxsWXivIIxxwENUbExBQHZ1xE1D9Mdo09eTSMLj4/edit?usp=sharing
 
 var byLine = Meteor.npmRequire('byline');
+var XLSX = Meteor.npmRequire("xlsx");
 var npmBinarySearch = Meteor.npmRequire('binary-search');
 var binarysearch = function (array, item) {
   return npmBinarySearch(array, item, function (a, b) {
@@ -61,6 +62,51 @@ FileHandler.prototype.blobAsString = function() {
         resolve(blobText);
       });
   });
+};
+
+
+function XLSWorkbook (wrangler_file_id, isSimulation) {
+  FileHandler.call(this, wrangler_file_id, isSimulation);
+}
+XLSWorkbook.prototype = Object.create(FileHandler.prototype);
+XLSWorkbook.prototype.constructor = XLSWorkbook;
+XLSWorkbook.prototype.parse = function () {
+  var self = this;
+  var deferred = Q.defer();
+
+  self.blobAsString()
+    .then(Meteor.bindEnvironment(function (blobText) {
+      /* convert data to binary string */
+      // var data = new Uint8Array(blobText);
+      // var arr = [];
+      // for(var i = 0; i != data.length; ++i) {
+      //   arr[i] = String.fromCharCode(data[i]);
+      // }
+      // var bstr = arr.join("");
+
+      /* Call XLSX */
+      console.log("blobText:", blobText);
+      var workbook = XLSX.read(blobText, {type:"binary"});
+
+      /* DO SOMETHING WITH workbook HERE */
+      self.parseWorkbook.call(self, null);
+      deferred.resolve();
+    }, function (error) { deferred.reject(error); }));
+
+  return deferred.promise;
+};
+XLSWorkbook.prototype.parseWorkbook = function (workbook) {
+  console.log("parseWorkbook not overridden");
+};
+
+
+function BasicClinical (wrangler_file_id, isSimulation) {
+  XLSWorkbook.call(this, wrangler_file_id, isSimulation);
+}
+BasicClinical.prototype = Object.create(XLSWorkbook.prototype);
+BasicClinical.prototype.constructor = BasicClinical;
+BasicClinical.prototype.parseWorkbook = function (workbook) {
+  console.log("I have a workbook!");
 };
 
 
@@ -584,4 +630,5 @@ FileHandlers = {
   BD2KGeneExpression: BD2KGeneExpression,
   BD2KSampleLabelMap: BD2KSampleLabelMap,
   TCGAGeneExpression: TCGAGeneExpression,
+  BasicClinical: BasicClinical,
 };
