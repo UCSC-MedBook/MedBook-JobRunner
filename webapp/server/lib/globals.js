@@ -1,5 +1,6 @@
 // actual globals
 Q = Meteor.npmRequire('q');
+byLine = Meteor.npmRequire('byline');
 
 wrangleSampleLabel = function (text) {
   // TODO: what if it's ProR3 or something?

@@ -49,14 +49,46 @@ function ParseWranglerFile (job_id) {
 }
 ParseWranglerFile.prototype = Object.create(Job.prototype);
 ParseWranglerFile.prototype.constructor = ParseWranglerFile;
+function setBlobTextSample () {
+  var self = this;
+
+  var blob_text_sample = "";
+  var lineNumber = 1; // NOTE: starts at 1
+  var characters = 1000;
+  var lines = 5;
+
+  var bylineStream = byLine(this.blob.createReadStream("blobs"));
+  bylineStream.on('data', Meteor.bindEnvironment(function (lineObject) {
+    blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
+
+    if (lineNumber === lines) {
+      bylineStream.pause();
+
+      WranglerFiles.update(self.wranglerFile._id, {
+        $set: {
+          blob_text_sample: blob_text_sample
+        }
+      });
+    }
+
+    lineNumber++;
+  }));
+}
 ParseWranglerFile.prototype.run = function () {
   var self = this;
 
   WranglerFiles.update(this.wranglerFile._id, {
     $set: {
-      "status": "processing",
+      status: "processing",
+    },
+    $unset: {
+      error_description: true,
     }
   });
+
+  // set blob_text_sample
+  // NOTE: this is an async function
+  setBlobTextSample.call(this);
 
   // try to guess options that have not been manually specified
   var options = self.wranglerFile.options;
@@ -110,10 +142,11 @@ ParseWranglerFile.prototype.run = function () {
     setFileOptions({ normalization: "counts" });
   }
 
+  // make sure we've got a file_type
   if (!options.file_type) {
     WranglerFiles.update(this.wranglerFile._id, {
       $set: {
-        error_description: "Click to select a file type"
+        error_description: "Please manually select a file type"
       }
     });
     return;
@@ -128,11 +161,16 @@ ParseWranglerFile.prototype.run = function () {
   var fileHandler = new fileHandlerClass(self.wranglerFile._id, true);
   return fileHandler.parse();
 };
-ParseWranglerFile.prototype.onError = function (e) {
+ParseWranglerFile.prototype.onError = function (error) {
+  var error_description = error.toString();
+  if (error.stack) {
+    error_description = "Internal error encountered while parsing file";
+  }
+
   WranglerFiles.update(this.job.args.wrangler_file_id, {
     $set: {
       status: "error",
-      error_description: "Error running job: " + e.toString(),
+      error_description: error_description,
     }
   });
 };

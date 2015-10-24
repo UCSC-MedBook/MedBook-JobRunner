@@ -1,7 +1,6 @@
 // https://docs.google.com/drawings/d/
 // 1I8TVxsWXivIIxxwENUbExBQHZ1xE1D9Mdo09eTSMLj4/edit?usp=sharing
 
-var byLine = Meteor.npmRequire('byline');
 var XLSX = Meteor.npmRequire("xlsx");
 var npmBinarySearch = Meteor.npmRequire('binary-search');
 var binarysearch = function (array, item) {
@@ -170,7 +169,12 @@ MutationVCF.prototype.parse = function () {
   return Q.Promise(function (resolve, reject) {
     self.blobAsString()
       .then(Meteor.bindEnvironment(function (blobText) {
-        var data = ParseVCF(blobText);
+        var data;
+        try {
+          data = ParseVCF(blobText);
+        } catch (error) {
+          reject("Error parsing .vcf file");
+        }
 
         // TODO: pull from the sampleNames in the header
         // var possibleSampleLabel = record.__HEADER__.sampleNames[0];
@@ -323,7 +327,7 @@ RectangularFile.prototype.parse = function () {
             .then(Meteor.bindEnvironment(function (values) {
               lineBufferPromises = [];
               bylineStream.resume();
-            }));
+            }, reject));
         }
 
         var line = lineObject.toString();
@@ -345,15 +349,15 @@ RectangularFile.prototype.parse = function () {
 
         self.parseLine.call(self, brokenTabs, thisLineNumber, line);
         deferred.resolve();
-      }, reject(error)))
+      }, reject))
       .on('end', Meteor.bindEnvironment(function () {
         // console.log("allLinePromises.slice(0, 5:)", allLinePromises.slice(0, 5));
         Q.all(allLinePromises)
           .then(Meteor.bindEnvironment(function () {
             self.endOfFile.call(self);
             resolve();
-          }, function (error) { reject(error); }));
-      }, function (error) { reject(error); }));
+          }, reject));
+      }, reject));
   });
 };
 RectangularFile.prototype.parseLine = function (brokenTabs, lineNumber, line) {

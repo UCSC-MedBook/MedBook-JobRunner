@@ -102,6 +102,9 @@ function runNextJob () {
 
     var error_description = "Reason for rejection: " + reason + ".";
     console.log("job: rejected - ", reason);
+    if (reason.stack) {
+      console.log("stack trace:", reason.stack);
+    }
     if (errorWarningUser) {
       error_description += " Error calling onError: " + errorWarningUser;
     }
@@ -109,6 +112,7 @@ function runNextJob () {
       $set: {
         status: "error",
         error_description: error_description,
+        stack_trace: reason.stack,
       }
     });
   };
@@ -142,7 +146,7 @@ Meteor.startup(function () {
   }, {
     $set: {
       status: "error",
-      error_description: "Server restarted"
+      ription: "Server restarted"
     }
   }, {multi: true});
 
