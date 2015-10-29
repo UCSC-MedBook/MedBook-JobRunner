@@ -224,7 +224,7 @@ SubmitWranglerFile.prototype = Object.create(Job.prototype);
 SubmitWranglerFile.prototype.constructor = SubmitWranglerFile;
 SubmitWranglerFile.prototype.run = function () {
   // figure out which FileHandler to create
-  var fileHandler = new FileHandlers[this.wranglerFile.options.file_type]
+  var fileHandler = new WranglerFileTypes[this.wranglerFile.options.file_type]
       (this.wranglerFile._id, false);
   return fileHandler.parse();
 };
@@ -234,6 +234,9 @@ SubmitWranglerFile.prototype.onError = function (e) {
       "through ParseWranglerFile...");
   var wranglerFile = WranglerFiles.findOne(this.job.args.wrangler_file_id);
   WranglerSubmissions.update(wranglerFile.submission_id, {
+    $set: {
+      status: "editing"
+    },
     $addToSet: {
       errors: "Error running write job: " + e,
     }

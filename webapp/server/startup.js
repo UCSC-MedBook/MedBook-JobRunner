@@ -52,8 +52,10 @@ function runNextJob () {
   console.log("job: running - ", mongoJob.name);
 
   // check to see if something else has to be done first
-  var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
-  if (mustHaveFinished && mustHaveFinished.status !== "done") {
+  var mustHaveFinished = Jobs.find({
+    _id: {$in: mongoJob.prerequisite_job_ids}
+  }).fetch();
+  for (var index in mustHaveFinished) {
     // if there was an error with that one, there's an error with this one
     if (mustHaveFinished.status === "error") {
       Jobs.update(mongoJob._id, {
