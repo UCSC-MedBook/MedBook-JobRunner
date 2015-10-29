@@ -50,29 +50,39 @@ function ParseWranglerFile (job_id) {
 ParseWranglerFile.prototype = Object.create(Job.prototype);
 ParseWranglerFile.prototype.constructor = ParseWranglerFile;
 function setBlobTextSample () {
-  var self = this;
+  var deferred = Q.defer();
 
+  var self = this;
   var blob_text_sample = "";
-  var lineNumber = 1; // NOTE: starts at 1
-  var characters = 1000;
+  var lineNumber = 0;
+  var characters = 250;
   var lines = 5;
 
   var bylineStream = byLine(this.blob.createReadStream("blobs"));
   bylineStream.on('data', Meteor.bindEnvironment(function (lineObject) {
-    blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
-
-    if (lineNumber === lines) {
-      bylineStream.pause();
-
-      WranglerFiles.update(self.wranglerFile._id, {
-        $set: {
-          blob_text_sample: blob_text_sample
-        }
-      });
-    }
-
     lineNumber++;
+    if (lineNumber <= lines) {
+      blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
+
+      if (lineNumber === lines) {
+        WranglerFiles.update(self.wranglerFile._id, {
+          $set: {
+            blob_text_sample: blob_text_sample
+          }
+        });
+      }
+    }
   }));
+  bylineStream.on('end', Meteor.bindEnvironment(function () {
+    WranglerFiles.update(self.wranglerFile._id, {
+      $set: {
+        blob_line_count: lineNumber
+      }
+    });
+    deferred.resolve();
+  }));
+
+  return deferred.promise;
 }
 ParseWranglerFile.prototype.run = function () {
   var self = this;
@@ -88,7 +98,10 @@ ParseWranglerFile.prototype.run = function () {
 
   // set blob_text_sample
   // NOTE: this is an async function
-  setBlobTextSample.call(this);
+  var textSamplePromise;
+  if (!this.wranglerFile.blob_text_sample) {
+    textSamplePromise = setBlobTextSample.call(this);
+  }
 
   // try to guess options that have not been manually specified
   var options = self.wranglerFile.options;
@@ -142,6 +155,11 @@ ParseWranglerFile.prototype.run = function () {
     setFileOptions({ normalization: "counts" });
   }
 
+  // we can now show the options to the user
+  WranglerFiles.update(this.wranglerFile._id, {
+    $set: { parsed_options_once_already: true }
+  });
+
   // make sure we've got a file_type
   if (!options.file_type) {
     WranglerFiles.update(this.wranglerFile._id, {
@@ -152,14 +170,28 @@ ParseWranglerFile.prototype.run = function () {
     return;
   }
 
-  var fileHandlerClass = FileHandlers[options.file_type];
+  var fileHandlerClass = WranglerFileTypes[options.file_type];
   if (!fileHandlerClass) {
     throw "file handler not yet defined (" + options.file_type + ")";
   }
 
   // figure out which FileHandler to create
   var fileHandler = new fileHandlerClass(self.wranglerFile._id, true);
-  return fileHandler.parse();
+
+  if (textSamplePromise) {
+    var deferred = Q.defer();
+    textSamplePromise
+      .then(Meteor.bindEnvironment(function () {
+        return fileHandler.parse();
+      }, deferred.reject))
+      .then(function () {
+        deferred.resolve();
+      })
+      .catch(deferred.reject);
+    return deferred.promise;
+  } else {
+    return fileHandler.parse();
+  }
 };
 ParseWranglerFile.prototype.onError = function (error) {
   var error_description = error.toString();
@@ -177,7 +209,7 @@ ParseWranglerFile.prototype.onError = function (error) {
 ParseWranglerFile.prototype.onSuccess = function (result) {
   WranglerFiles.update(this.wranglerFile._id, {
     $set: {
-      status: "done"
+      status: "done",
     }
   });
 };
@@ -234,10 +266,6 @@ SubmitWranglerSubmission.prototype.run = function () {
   var errorCount = 0; // increased with addSubmissionError
 
   // define some helper functions
-  function setSubmissionStatus (newStatus) {
-    console.log("submission:", newStatus);
-    WranglerSubmissions.update(submission_id, {$set: {"status": newStatus}});
-  }
   function addSubmissionError (description) {
     if (errorCount < 25) {
       WranglerSubmissions.update(submission_id, {
@@ -247,10 +275,17 @@ SubmitWranglerSubmission.prototype.run = function () {
       });
     }
 
-    if (errorCount !== 0) { // no need to set it twice
-      setSubmissionStatus("editing");
+    if (errorCount === 0) { // no need to set it twice
+      WranglerSubmissions.update(submission_id, {$set: {"status": "editing"}});
     }
     errorCount++;
+  }
+
+  // make sure there are some files
+  if (WranglerFiles
+      .find({submission_id: submission_id})
+      .count() === 0) {
+    return addSubmissionError("No files uploaded");
   }
 
   // make sure each file is "done"
@@ -265,12 +300,10 @@ SubmitWranglerSubmission.prototype.run = function () {
 
   // make sure there are some documents
   // NOTE: I'm assuming we have to have documents...
-  var totalCount = WranglerDocuments
+  if (WranglerDocuments
       .find({submission_id: submission_id})
-      .count();
-  if (totalCount === 0) {
-    addSubmissionError("No documents present");
-    return;
+      .count() === 0) {
+    return addSubmissionError("No documents present");
   }
 
   // make sure we have only one type of submission type
@@ -286,8 +319,7 @@ SubmitWranglerSubmission.prototype.run = function () {
       ])[0]
       .distinct_submission_types;
   if (distinctSubmissionTypes.length !== 1) {
-    addSubmissionError("Mixed submission types");
-    return;
+    return addSubmissionError("Mixed submission types");
   }
 
   // we have successfully verified that the submission is ready for writing!

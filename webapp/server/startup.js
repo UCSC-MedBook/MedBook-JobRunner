@@ -20,27 +20,36 @@ function runNextJob () {
     return;
   }
 
+  function retryLater (error_description) {
+    if (error_description) {
+      console.log("job: retrying - " + error_description);
+      Jobs.update(mongoJob._id, {
+        $set: {
+          status: "waiting",
+          error_description: error_description,
+        },
+        $inc: { "retry_count": 1 }
+      });
+    } else {
+      // sometimes we just want to throw it back and not tell anyone
+      Jobs.update(mongoJob._id, {
+        $set: { status: "waiting" },
+      });
+    }
+  }
+
   // make sure the user is only running one task
   if (Jobs.find({
         status: "running",
         user_id: mongoJob.user_id,
       }).count() > 1) {
-    console.log("thrown out because already running something");
-    return;
+    return retryLater();
   }
 
+  // this is down here because theoretically we could be running two tasks from
+  // the same user and we want to make sure we quit out before printing if
+  // that comes to pass
   console.log("job: running - ", mongoJob.name);
-
-  function retryLater (error_description) {
-    console.log("job: retrying - " + error_description);
-    Jobs.update(mongoJob._id, {
-      $set: {
-        status: "waiting",
-        error_description: error_description,
-      },
-      $inc: { "retry_count": 1 }
-    });
-  }
 
   // check to see if something else has to be done first
   var mustHaveFinished = Jobs.findOne(mongoJob.prerequisite_job_id);
