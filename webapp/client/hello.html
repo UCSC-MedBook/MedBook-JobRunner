@@ -1,0 +1,74 @@
+<body>
+  <div class="container">
+    <h1>Welcome to JobRunner</h1>
+
+    {{> listJobs}}
+
+    {{> jobsHelp}}
+  </div>
+</body>
+
+<template name="listJobs">
+  <div class="panel panel-default">
+    <!-- Default panel contents -->
+    <div class="panel-heading">Jobs</div>
+    <!-- <div class="panel-body">
+      <p>This is the content of the panel</p>
+    </div> -->
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>User id</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each getJobs}}
+          <tr>
+            <th scope="row">{{name}}</th>
+            <td>{{user_id}}</td>
+            <td>{{status}}</td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</template>
+
+<template name="jobsHelp">
+  <div class="panel panel-default">
+    <!-- Default panel contents -->
+    <div class="panel-heading">Jobs help</div>
+    <div class="panel-body">
+      <p>To schedule a job to be run:</p>
+<samp style="white-space: pre;">Jobs.insert({
+  name: "ParseWranglerFile",
+  args: {
+    needed_for_job: "Wow this is cool",
+    other_argument: "Hello, JobRunner!",
+  },
+  user_id: Meteor.userId(),
+});
+</samp>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each getJobsHelp}}
+          <tr>
+            <th scope="row">{{name}}</th>
+            <td>{{help}}</td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+</template>

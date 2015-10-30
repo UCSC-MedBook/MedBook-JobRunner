@@ -15,6 +15,5 @@ meteorhacks:npm
 npm-container
 medbook:parse-vcf
 meteorhacks:aggregate
-raix:eventemitter
 
-clinical:collaborations-ui
+twbs:bootstrap
