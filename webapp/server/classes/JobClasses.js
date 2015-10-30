@@ -1,3 +1,8 @@
+var ntemp = Meteor.npmRequire('temp').track();
+var path = Npm.require('path');
+var fs = Npm.require('fs');
+var spawn = Npm.require('child_process').spawn;
+
 function Job (job_id) {
   this.job = Jobs.findOne(job_id);
   if (!this.job) {
@@ -433,10 +438,278 @@ FinishWranglerSubmission.prototype.onError = function (e) {
 };
 
 
+function RunLimma (job_id) {
+  Job.call(this, job_id);
+
+  // NOTE: top_gene_count can be a string or a number
+  var top_gene_count = this.job.args.top_gene_count;
+  if (!top_gene_count) {
+    throw "top_gene_count not defined";
+  }
+  if (isNaN(top_gene_count)) {
+    throw "top_gene_count not a number: " + top_gene_count;
+  }
+  this.top_gene_count = parseInt(top_gene_count);
+
+  // 	var contrast = Contrast.findOne({'_id':contrastId}, {list1:1,'name':1,'studyID':1,_id:0});
+  this.contrast = Contrast.findOne(this.job.args.contrast_id);
+  if (!this.contrast) {
+    throw "invalid contrast_id";
+  }
+
+  this.study = Studies.findOne({ id: this.contrast.studyID });
+  if (!this.study) {
+    throw "invalid studyID in contrast";
+  }
+}
+RunLimma.prototype = Object.create(Job.prototype);
+RunLimma.prototype.constructor = RunLimma;
+RunLimma.prototype.run = function () {
+  var self = this;
+  // console.log("Meteor.settings:", Meteor.settings);
+
+  // error checking for contrast
+  if (this.contrast.list1.length < 3 ||
+      this.contrast.list2.length < 3) {
+    throw "not enough samples in contrast to estimate variance";
+  }
+  console.log('# of samples in each side of' , this.contrast.name,': ' ,
+      this.contrast.list1.length, 'vs',this.contrast.list2.length);
+
+  // TODO: do we need this?
+  var sampleList =  {'_id':0};
+	var sampleList2 =  {'_id':0};
+
+  // creates phenotype file and writes it
+  function writePhenoFile(filePath) {
+    var phenoDeferred = Q.defer();
+
+    var phenoWriteStream = fs.createWriteStream(filePath);
+  	phenoWriteStream.write( "sample\tgroup\n");
+  	_.each(self.contrast.list1, function(item) {
+  		phenoWriteStream.write(item);
+  		sampleList[item] = 1;
+  		phenoWriteStream.write('\t');
+  		phenoWriteStream.write(self.contrast.group1);
+  		phenoWriteStream.write( '\n');
+  	});
+  	_.each(self.contrast.list2, function(item) {
+  		phenoWriteStream.write(item);
+  		sampleList[item] = 1;
+  		phenoWriteStream.write('\t');
+  		phenoWriteStream.write(self.contrast.group2);
+  		phenoWriteStream.write( '\n');
+  	});
+  	phenoWriteStream.end();
+
+    phenoWriteStream
+      .on("error", phenoDeferred.reject)
+      .on("finish", phenoDeferred.resolve);
+
+    return phenoDeferred.promise;
+  }
+
+  // creates expression file and writes it
+  function writeExpressionFile(filePath) {
+    var expressionDeferred = Q.defer();
+
+    var expressionWriteStream = fs.createWriteStream(filePath);
+  	// expressionWriteStream.write( "sample\tgroup\n");
+
+    // 	var exp_curs = Expression.find({}, sampleList);
+  	// 	var fd = fs.openSync(expfile,'w');
+  	// 	fs.writeSync(fd,'gene\t');
+  	// 	_.map(sampleList, function(value, key) {
+    //
+  	// 		if (value == 1) {
+  	// 			fs.writeSync(fd,key);
+  	// 			fs.writeSync(fd,'\t');
+  	// 		}
+  	// 	});
+  	// 	fs.writeSync(fd,'\n');
+  	// 	console.log('exp count' , exp_curs.count());
+    //
+  	// 	exp_curs.forEach(function(exp) {
+    //
+  	// 		fs.writeSync(fd,exp.gene);
+  	// 		fs.writeSync(fd,'\t');
+  	// 		_.map(sampleList, function(value, key) {
+    //
+  	// 			if (value == 1) {
+  	// 				geneExp = exp[key];
+  	// 				fs.writeSync(fd,geneExp+'');
+  	// 				fs.writeSync(fd,'\t');
+  	// 			}
+  	// 		});
+  	// 		fs.writeSync(fd,'\n');
+  	// 	});
+  	// 	fs.closeSync(fd);
+  	// 	fs.exists(expfile, function(data) {
+  	// 		console.log('file',	 expfile, 'exists?', data );
+  	// 	});
+
+  	expressionWriteStream.end();
+
+    expressionWriteStream
+      .on("error", expressionDeferred.reject)
+      .on("finish", expressionDeferred.resolve);
+
+    return expressionDeferred.promise;
+  }
+
+
+
+  // create paths for files on the disk
+  var workDir = ntemp.mkdirSync('RunLimma');
+  var phenoPath = path.join(workDir, 'pheno.tab');
+  var expressionPath = path.join(workDir, 'expdata.tab');
+
+  var deferred = Q.defer();
+  Q.all([writePhenoFile(phenoPath), writeExpressionFile(expressionPath)])
+      .done(function (resolvedValues) {
+    console.log("done writing!");
+    console.log("phenoPath:", phenoPath);
+    deferred.resolve();
+  });
+
+  return deferred.promise;
+
+
+  //
+	// 	var cmd = medbook_config.tools.limma.path;
+	// 	var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
+	// 		var idList = [];
+	// 		console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
+	// 		var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
+	// 		_.each(buf, function(item) {
+	// 			if (item) {
+	// 				var opts = {};
+	// 				ext = path.extname(item).toString();
+	// 				filename = path.basename(item).toString();
+	// 				if (ext == '.xgmml')
+	// 					opts.type = 'text/xgmml';
+	// 				else if (ext == '.sif')
+	// 					opts.type = 'text/network';
+	// 				else if (ext == '.tab')
+	// 					opts.type = 'text/tab-separated-values';
+	// 				//else if (filename == 'genes.tab')
+	// 				//	opts.type = ' Top Diff Genes'
+	// 				else
+	// 					opts.type = mime.lookup(item);
+  //
+	// 				var f = new FS.File();
+	// 				f.attachData(item, opts);
+  //
+	// 				var blob = Blobs.insert(f);
+	// 				console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
+	// 				if (f.name() == 'genes.tab') {
+	// 					// Write signature object to MedBook
+	// 					console.log('write gene signature');
+	// 					var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
+	// 					var count = 0;
+	// 					var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
+	// 					var version = 0.9;
+	// 					var sigDict = {'AR' :{'weight':3.3}};
+	// 					try {
+	// 						version = Number(sig_version[0].version);
+	// 					}
+	// 					catch(error) {
+	// 						version = 0.9;
+	// 					}
+	// 					console.log('previous signature version', version);
+	// 					version = version + 0.1;
+	// 					_.each(sig_lines, function(sig_line) {
+	// 						var line = sig_line.split('\t');
+  //
+	// 						// logFC AveExpr t P.Value adj.P.Val B
+	// 						gene = line[0];
+	// 						fc = line[1];
+	// 						aveExp = line[2];
+	// 						tStat = line[3];
+	// 						pVal = line[4];
+	// 						adjPval = line[5];
+	// 						Bstat = line[6];
+	// 						if (gene) {
+	// 							try {
+	// 								sig = {};
+	// 								//sig['name'] = gene
+	// 								sig.weight = fc;
+	// 								sig.pval = pVal;
+	// 									sigDict[gene] = sig;
+	// 								count += 1;
+	// 								//if (count < 10) {
+	// 								//	console.log(gene,fc, sig)
+	// 									//}
+	// 							}
+	// 							catch (error) {
+	// 								console.log('cannot insert signature for gene', gene, error);
+	// 							}
+	// 						}
+	// 					});
+	// 					var sigID = new Meteor.Collection.ObjectID();
+	// 					var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
+	// 						'version':version,'contrast':contrastId, 'signature':  sigDict });
+	// 					console.log('signature insert returns', sigObj);
+	// 				}
+	// 				idList.push(blob._id);
+	// 			}
+	// 		}) ; /* each item in report.list */
+	// 		var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
+	// 		/* remove auto post
+	// 		var post = {
+	// 			title: "Results for contrast: "+contrastName,
+	// 			url: "/wb/results/"+resObj,
+	// 			body: "this is the results of limmma differential analysis run on 2/14/2015",
+	// 			medbookfiles: idList
+	// 		}
+	// 		console.log('user is ',uid)
+	// 		if (uid) {
+	// 			var user = Meteor.users.findOne({_id:uid})
+	// 			if (user) {
+	// 				console.log('user.services', user.services)
+	// 				var token = user.services.resume.loginTokens[0].hashedToken
+	// 				console.log('before post',post, token, 'username', user.username)
+	// 				HTTP.post("http://localhost:10001/medbookPost", {data:{post:post, token:token}})
+	// 				console.log('after post')
+	// 			}
+	// 		}*/
+	// 		//if (retcode == 0) {
+	// 		//	ntemp.cleanup(function(err, stats) {
+	// 	//			if (err)
+	// 	//				console.log('error deleting temp files', err)
+	// 	//			console.log('deleting temp files');
+	// 	//	  	});
+	// 	//	}
+	// 	};  /* end of whendon */
+  //
+	// 	Meteor.call('runshell', {{get from Meteor.settings.limma_path}}, [expfile,phenofile, '200', 'sig.tab', 'genes.tab', 'mds.pdf'],
+	// 		workDir, contrastId, contrastName, studyID, path.join(workDir,'report.list'), whendone, function(err,response) {
+	// 			if(err) {
+	// 				console.log('serverDataResponse', "pathmark_adapter Error:" + err);
+	// 				return ;
+	// 			}
+	// 	resultObj = response.stderr;
+	// 	console.log('limma started stdout stream id: '+resultObj._id+ ' stdout name '+resultObj.name());
+	// 	var readstream = resultObj.createReadStream('blobs');
+	// 	readstream.setEncoding('utf8');
+	// 	readstream.on('data', function(chunk) {
+	// 		console.log('chunk', chunk);
+	// 	});
+	// });
+};
+RunLimma.prototype.onError = function (error) {
+  console.log("onError");
+};
+RunLimma.prototype.onSuccess = function (result) {
+  console.log("onSuccess");
+};
+
+
 JobClasses = {
   // usable classes (extend from Job)
   ParseWranglerFile: ParseWranglerFile,
   SubmitWranglerFile: SubmitWranglerFile,
   SubmitWranglerSubmission: SubmitWranglerSubmission,
   FinishWranglerSubmission: FinishWranglerSubmission,
+  RunLimma: RunLimma,
 };
