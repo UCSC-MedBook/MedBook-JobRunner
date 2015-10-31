@@ -501,6 +501,8 @@ RunLimma.prototype.run = function () {
   		phenoWriteStream.write( '\n');
   	});
   	phenoWriteStream.end();
+    this.sampleList = sampleList;
+    console.log(this.sampleList) ;
 
     phenoWriteStream
       .on("error", phenoDeferred.reject)
@@ -514,41 +516,55 @@ RunLimma.prototype.run = function () {
     var expressionDeferred = Q.defer();
 
     var expressionWriteStream = fs.createWriteStream(filePath);
-  	// expressionWriteStream.write( "sample\tgroup\n");
 
-    // 	var exp_curs = Expression.find({}, sampleList);
-  	// 	var fd = fs.openSync(expfile,'w');
-  	// 	fs.writeSync(fd,'gene\t');
-  	// 	_.map(sampleList, function(value, key) {
-    //
-  	// 		if (value == 1) {
-  	// 			fs.writeSync(fd,key);
-  	// 			fs.writeSync(fd,'\t');
-  	// 		}
-  	// 	});
-  	// 	fs.writeSync(fd,'\n');
-  	// 	console.log('exp count' , exp_curs.count());
-    //
-  	// 	exp_curs.forEach(function(exp) {
-    //
-  	// 		fs.writeSync(fd,exp.gene);
-  	// 		fs.writeSync(fd,'\t');
-  	// 		_.map(sampleList, function(value, key) {
-    //
-  	// 			if (value == 1) {
-  	// 				geneExp = exp[key];
-  	// 				fs.writeSync(fd,geneExp+'');
-  	// 				fs.writeSync(fd,'\t');
-  	// 			}
-  	// 		});
-  	// 		fs.writeSync(fd,'\n');
-  	// 	});
-  	// 	fs.closeSync(fd);
-  	// 	fs.exists(expfile, function(data) {
-  	// 		console.log('file',	 expfile, 'exists?', data );
-  	// 	});
+    console.log('expresssion2.find{Study_ID:'+self.study.id);
+    var exp_curs = Expression2.find({Study_ID:self.study.id});
+  	//var fd = fs.openSync(expfile,'w');
+  	expressionWriteStream.write('gene\t');
+  	_.map(sampleList, function(value, key) {
 
-  	expressionWriteStream.end();
+    	if (value == 1) {
+  	 			expressionWriteStream.write(key);
+  	 			expressionWriteStream.write('\t');
+  	 		}
+  	 	});
+  	 	expressionWriteStream.write('\n');
+  	 	console.log('exp count' , exp_curs.count());
+  	 	console.log('where is sampleList:' + self.sampleList);
+
+  	 	exp_curs.forEach(function(exp) {
+
+        //console.log(exp.samples);
+  	 		expressionWriteStream.write(exp.gene);
+  	 		expressionWriteStream.write('\t');
+  	 		_.map(exp.samples, function(value, key) {
+          if (_.indexOf(self.sampleList, value) > 0) {
+             console.log('found'+value);
+      	 		_.map(key, function(value, key2) {
+              console.log(value);
+              console.log(key2);
+            })
+
+          }
+          // else {
+            //console.log('not found');
+            //console.log(value ) ;
+            //console.log(self.sampleList) ;
+          //}
+
+   			if (value == 1) {
+  	 				geneExp = exp[key];
+  	 				expressionWriteStream.write(geneExp+'');
+  	 				expressionWriteStream.write('\t');
+  	 			}
+  	 		});
+  	 		expressionWriteStream.write('\n');
+  		});
+  	  expressionWriteStream.end();
+  	 	fs.exists(filePath, function(data) {
+  	 		console.log('file',	 filePath, 'exists?', data );
+  	 	});
+
 
     expressionWriteStream
       .on("error", expressionDeferred.reject)
