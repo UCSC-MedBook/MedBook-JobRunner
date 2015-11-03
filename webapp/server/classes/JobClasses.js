@@ -169,7 +169,8 @@ ParseWranglerFile.prototype.run = function () {
   if (!options.file_type) {
     WranglerFiles.update(this.wranglerFile._id, {
       $set: {
-        error_description: "Please manually select a file type"
+        error_description: "File type could not be inferred. " +
+            "Please manually select a file type"
       }
     });
     return;
@@ -200,13 +201,15 @@ ParseWranglerFile.prototype.run = function () {
 };
 ParseWranglerFile.prototype.onError = function (error) {
   var error_description = error.toString();
+  var status = "done";
   if (error.stack) {
     error_description = "Internal error encountered while parsing file";
+    status = "error";
   }
 
   WranglerFiles.update(this.job.args.wrangler_file_id, {
     $set: {
-      status: "error",
+      status: status,
       error_description: error_description,
     }
   });
@@ -296,10 +299,13 @@ SubmitWranglerSubmission.prototype.run = function () {
     return addSubmissionError("No files uploaded");
   }
 
-  // make sure each file is "done"
+  // make sure each file is "done" and don't have error_description defined
   WranglerFiles.find({submission_id: submission_id}).forEach(function (doc) {
     if (doc.status !== "done") {
       addSubmissionError("File not done: " + doc.blob_name);
+    } else if (doc.error_description) {
+      addSubmissionError(doc.blob_name + " has a problem: " +
+          doc.error_description);
     }
   });
   if (errorCount !== 0) {
