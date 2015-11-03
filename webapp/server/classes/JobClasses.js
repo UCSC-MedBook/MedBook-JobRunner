@@ -501,8 +501,8 @@ RunLimma.prototype.run = function () {
   		phenoWriteStream.write( '\n');
   	});
   	phenoWriteStream.end();
-    this.sampleList = sampleList;
-    console.log(this.sampleList) ;
+    self.sampleList = sampleList;
+    //console.log(self.sampleList) ;
 
     phenoWriteStream
       .on("error", phenoDeferred.reject)
@@ -517,49 +517,40 @@ RunLimma.prototype.run = function () {
 
     var expressionWriteStream = fs.createWriteStream(filePath);
 
-    console.log('expresssion2.find{Study_ID:'+self.study.id);
+    console.log('expresssion2.find Study_ID:'+self.study.id);
     var exp_curs = Expression2.find({Study_ID:self.study.id});
   	//var fd = fs.openSync(expfile,'w');
   	expressionWriteStream.write('gene\t');
   	_.map(sampleList, function(value, key) {
 
-    	if (value == 1) {
+      if (value ==1 ) {
   	 			expressionWriteStream.write(key);
   	 			expressionWriteStream.write('\t');
-  	 		}
-  	 	});
-  	 	expressionWriteStream.write('\n');
-  	 	console.log('exp count' , exp_curs.count());
-  	 	console.log('where is sampleList:' + self.sampleList);
+      }
+    });
+  	expressionWriteStream.write('\n');
+  	console.log('exp count' , exp_curs.count());
+  	console.log('samplelist:');
+  	console.log(self.sampleList);
 
-  	 	exp_curs.forEach(function(exp) {
+  	exp_curs.forEach(function(exp) {
+        var sampleArray = [];
 
-        //console.log(exp.samples);
   	 		expressionWriteStream.write(exp.gene);
   	 		expressionWriteStream.write('\t');
   	 		_.map(exp.samples, function(value, key) {
-          if (_.indexOf(self.sampleList, value) > 0) {
-             console.log('found'+value);
-      	 		_.map(key, function(value, key2) {
-              console.log(value);
-              console.log(key2);
-            })
-
-          }
-          // else {
-            //console.log('not found');
-            //console.log(value ) ;
-            //console.log(self.sampleList) ;
-          //}
-
-   			if (value == 1) {
-  	 				geneExp = exp[key];
-  	 				expressionWriteStream.write(geneExp+'');
-  	 				expressionWriteStream.write('\t');
-  	 			}
-  	 		});
+          if (self.sampleList[key] !== undefined) {
+      	 	  geneExp = value.rsem_quan_log2;
+            sampleArray.push(geneExp);
+  	 				//expressionWriteStream.write(geneExp+'');
+  	 				//expressionWriteStream.write('\t');
+            }
+        });
+  	 		expressionWriteStream.write(sampleArray.join('\t'));
   	 		expressionWriteStream.write('\n');
   		});
+
+  	 	console.log('end of file');
   	  expressionWriteStream.end();
   	 	fs.exists(filePath, function(data) {
   	 		console.log('file',	 filePath, 'exists?', data );
@@ -571,12 +562,13 @@ RunLimma.prototype.run = function () {
       .on("finish", expressionDeferred.resolve);
 
     return expressionDeferred.promise;
-  }
+    }
 
 
 
   // create paths for files on the disk
   var workDir = ntemp.mkdirSync('RunLimma');
+  console.log('workDir'+workDir);
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
 
