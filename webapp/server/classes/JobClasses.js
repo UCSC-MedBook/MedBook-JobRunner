@@ -482,111 +482,154 @@ RunLimma.prototype.run = function () {
   console.log('# of samples in each side of' , this.contrast.name,': ' ,
       this.contrast.list1.length, 'vs',this.contrast.list2.length);
 
-  // TODO: do we need this?
-  var sampleList =  {'_id':0};
-	var sampleList2 =  {'_id':0};
+  self.sampleList = {};
 
-  // creates phenotype file and writes it
+  // Writes the phenotype file.
+  // Also sets self.sampleList which keeps track of the samples that are in
+  // either list1 or list2.
+  // NOTE: no attempt to avoid the internal Node buffer has been made
+  // here because this file shouldn't be long enough to need it.
   function writePhenoFile(filePath) {
-    var phenoDeferred = Q.defer();
-
     var phenoWriteStream = fs.createWriteStream(filePath);
   	phenoWriteStream.write( "sample\tgroup\n");
   	_.each(self.contrast.list1, function(item) {
   		phenoWriteStream.write(item);
-  		sampleList[item] = 1;
   		phenoWriteStream.write('\t');
   		phenoWriteStream.write(self.contrast.group1);
   		phenoWriteStream.write( '\n');
+      self.sampleList[item] = 1;
   	});
   	_.each(self.contrast.list2, function(item) {
   		phenoWriteStream.write(item);
-  		sampleList[item] = 1;
   		phenoWriteStream.write('\t');
   		phenoWriteStream.write(self.contrast.group2);
   		phenoWriteStream.write( '\n');
+      self.sampleList[item] = 1;
   	});
-  	phenoWriteStream.end();
-    self.sampleList = sampleList;
-    //console.log(self.sampleList) ;
 
-    phenoWriteStream
-      .on("error", phenoDeferred.reject)
-      .on("finish", phenoDeferred.resolve);
-
-    return phenoDeferred.promise;
+    var phenoDefer = Q.defer();
+    phenoWriteStream.end(function () {
+      console.log("end called");
+      phenoDefer.resolve();
+    });
+    return phenoDefer.promise;
   }
 
-  // creates expression file and writes it
+  // Writes the data in the expression file
   function writeExpressionFile(filePath) {
-    var expressionDeferred = Q.defer();
+    var writeStream = fs.createWriteStream(filePath);
 
-    var expressionWriteStream = fs.createWriteStream(filePath);
-
-    console.log('expresssion2.find Study_ID:'+self.study.id);
-    var exp_curs = Expression2.find({Study_ID:self.study.id});
-  	//var fd = fs.openSync(expfile,'w');
-  	expressionWriteStream.write('gene\t');
-  	_.map(sampleList, function(value, key) {
-
-      if (value ==1 ) {
-  	 			expressionWriteStream.write(key);
-  	 			expressionWriteStream.write('\t');
+    // write the header line
+  	writeStream.write('gene\t');
+  	_.map(self.sampleList, function(value, key) {
+      if (value === 1) {
+    		writeStream.write(key);
+    		writeStream.write('\t');
       }
     });
-  	expressionWriteStream.write('\n');
-  	console.log('exp count' , exp_curs.count());
-  	console.log('samplelist:');
-  	console.log(self.sampleList);
+  	writeStream.write('\n');
 
-  	exp_curs.forEach(function(exp) {
-        var sampleArray = [];
+    // get data for the rest of the file
+    var fields = { gene: 1 };
+    _.each(self.sampleList, function (value, key) {
+      fields["samples." + key] = value;
+    });
+    var count = 0;
+    var expressionCursor = Expression2.rawCollection().find(
+        { Study_ID: self.study.id },
+        { fields: fields, limit: 10000 });
 
-  	 		expressionWriteStream.write(exp.gene);
-  	 		expressionWriteStream.write('\t');
-  	 		_.map(exp.samples, function(value, key) {
-          if (self.sampleList[key] !== undefined) {
-      	 	  geneExp = value.rsem_quan_log2;
-            sampleArray.push(geneExp);
-  	 				//expressionWriteStream.write(geneExp+'');
-  	 				//expressionWriteStream.write('\t');
-            }
-        });
-  	 		expressionWriteStream.write(sampleArray.join('\t'));
-  	 		expressionWriteStream.write('\n');
-  		});
+    // set up helper functions to write the rest of the file
+    function niceWrite(toWrite) {
+      var keepWriting = writeStream.write(toWrite);
+      if (keepWriting) {
+        // return a promise that has already been resolved
+        // any .then()s connected to this will fire immidiately
+        return Q();
+      }
 
-  	 	console.log('end of file');
-  	  expressionWriteStream.end();
-  	 	fs.exists(filePath, function(data) {
-  	 		console.log('file',	 filePath, 'exists?', data );
-  	 	});
-
-
-    expressionWriteStream
-      .on("error", expressionDeferred.reject)
-      .on("finish", expressionDeferred.resolve);
-
-    return expressionDeferred.promise;
+      // waits until the stream has drained, then resolves
+      return new Q.Promise(function (resolve) {
+        writeStream.once("drain", resolve);
+      });
     }
 
+    function writeArray(arrayOfStrings) {
+      // NOTE: the way I'm starting all of the writes here means there
+      // could be multiple 'drain' events on writeStream,
+      // but I'm pretty sure that's okay
 
+      var arrayPromises = [];
+      for (var index in arrayOfStrings) {
+        arrayPromises.push(niceWrite(arrayOfStrings[index]));
+      }
+      return Q.all(arrayPromises);
+    }
+
+    // deferred.resolve will be called when writeNextLine finds the end of
+    // the expression cursor
+    var deferred = Q.defer();
+
+    function writeNextLine() {
+      expressionCursor.nextObject(function (error, expressionDoc) {
+        // check to see if we've found the end of the cursor
+        if (!expressionDoc) {
+          writeStream.end(function () {
+            console.log("end called");
+            deferred.resolve();
+          });
+          return; // don't run the rest of the function
+        }
+
+        // actually write to the file
+        var toWriteArray = [];
+        toWriteArray.push(expressionDoc.gene);
+        toWriteArray.push('\t');
+        var sampleArray = []; // don't call write more than we need
+        _.map(expressionDoc.samples, function(value, key) {
+          if (self.sampleList[key] !== undefined) {
+        	  geneExp = value.rsem_quan_log2;
+            sampleArray.push(geneExp);
+          }
+        });
+        toWriteArray.push(sampleArray.join('\t'));
+        toWriteArray.push('\n');
+
+        // write toWriteArray to the file, then write the next line
+        writeArray(toWriteArray).then(writeNextLine);
+      });
+    }
+
+    // start out the promise-based recursive looping through the cursor
+    console.log("about to call writeNextLine");
+    writeNextLine();
+    console.log("after first writeNextLine call");
+
+    return deferred.promise;
+  }
 
   // create paths for files on the disk
   var workDir = ntemp.mkdirSync('RunLimma');
-  console.log('workDir'+workDir);
+  console.log('workDir: ', workDir);
+
+  // TODO: generate the file names in the functions themselves, then
+  // hand them off through a Q.all().spread
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
 
   var deferred = Q.defer();
-  Q.all([writePhenoFile(phenoPath), writeExpressionFile(expressionPath)])
-      .done(function (resolvedValues) {
-    console.log("done writing!");
-    console.log("phenoPath:", phenoPath);
-    deferred.resolve();
-  });
-
+  writePhenoFile(phenoPath)
+    .then(function () {
+      console.log("done writing phenofile");
+      return writeExpressionFile(expressionPath);
+    })
+    .then(function () {
+      console.log("done writing expression file");
+      deferred.resolve();
+    })
+    .catch(deferred.reject);
   return deferred.promise;
+
 
 
   //
