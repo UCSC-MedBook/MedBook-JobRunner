@@ -1,6 +1,10 @@
 // actual globals
 Q = Meteor.npmRequire('q');
 byLine = Meteor.npmRequire('byline');
+ntemp = Meteor.npmRequire('temp').track();
+path = Npm.require('path');
+fs = Npm.require('fs');
+spawn = Npm.require('child_process').spawn;
 
 wrangleSampleLabel = function (text) {
   // TODO: what if it's ProR3 or something?
