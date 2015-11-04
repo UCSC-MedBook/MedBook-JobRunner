@@ -26,7 +26,6 @@ RunLimma.prototype = Object.create(Job.prototype);
 RunLimma.prototype.constructor = RunLimma;
 RunLimma.prototype.run = function () {
   var self = this;
-  // console.log("Meteor.settings:", Meteor.settings);
 
   // error checking for contrast
   if (this.contrast.list1.length < 3 ||
@@ -88,7 +87,7 @@ RunLimma.prototype.run = function () {
     var count = 0;
     var expressionCursor = Expression2.rawCollection().find(
         { Study_ID: self.study.id },
-        { fields: fields, limit: 10000 });
+        { fields: fields });
 
     // set up helper functions to write the rest of the file
     //
@@ -182,6 +181,9 @@ RunLimma.prototype.run = function () {
     })
     .then(function () {
       console.log("done writing expression file");
+
+      console.log("Meteor.settings:", Meteor.settings);
+
       deferred.resolve();
     })
     .catch(deferred.reject);
