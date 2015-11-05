@@ -176,142 +176,28 @@ RunLimma.prototype.run = function () {
   var deferred = Q.defer();
   writePhenoFile(phenoPath)
     .then(function () {
-      console.log("done writing phenofile");
+      // console.log("done writing phenofile");
       return writeExpressionFile(expressionPath);
     })
     .then(function () {
-      console.log("done writing expression file");
+      // console.log("done writing expression file");
 
-      console.log("Meteor.settings:", Meteor.settings);
+      var settings = Meteor.settings;
+      if (!settings) {
+        throw "No Meteor.settings file available";
+      }
+      if (!settings.limma_path) {
+        throw "No limma_path defined in Meteor.settings file";
+      }
 
+      return spawnCommand(Meteor.settings.limma_path, [], workDir);
+    })
+    .then(function () {
+      // console.log("done with command");
       deferred.resolve();
     })
     .catch(deferred.reject);
   return deferred.promise;
-
-
-
-  //
-	// 	var cmd = medbook_config.tools.limma.path;
-	// 	var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
-	// 		var idList = [];
-	// 		console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
-	// 		var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
-	// 		_.each(buf, function(item) {
-	// 			if (item) {
-	// 				var opts = {};
-	// 				ext = path.extname(item).toString();
-	// 				filename = path.basename(item).toString();
-	// 				if (ext == '.xgmml')
-	// 					opts.type = 'text/xgmml';
-	// 				else if (ext == '.sif')
-	// 					opts.type = 'text/network';
-	// 				else if (ext == '.tab')
-	// 					opts.type = 'text/tab-separated-values';
-	// 				//else if (filename == 'genes.tab')
-	// 				//	opts.type = ' Top Diff Genes'
-	// 				else
-	// 					opts.type = mime.lookup(item);
-  //
-	// 				var f = new FS.File();
-	// 				f.attachData(item, opts);
-  //
-	// 				var blob = Blobs.insert(f);
-	// 				console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
-	// 				if (f.name() == 'genes.tab') {
-	// 					// Write signature object to MedBook
-	// 					console.log('write gene signature');
-	// 					var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
-	// 					var count = 0;
-	// 					var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
-	// 					var version = 0.9;
-	// 					var sigDict = {'AR' :{'weight':3.3}};
-	// 					try {
-	// 						version = Number(sig_version[0].version);
-	// 					}
-	// 					catch(error) {
-	// 						version = 0.9;
-	// 					}
-	// 					console.log('previous signature version', version);
-	// 					version = version + 0.1;
-	// 					_.each(sig_lines, function(sig_line) {
-	// 						var line = sig_line.split('\t');
-  //
-	// 						// logFC AveExpr t P.Value adj.P.Val B
-	// 						gene = line[0];
-	// 						fc = line[1];
-	// 						aveExp = line[2];
-	// 						tStat = line[3];
-	// 						pVal = line[4];
-	// 						adjPval = line[5];
-	// 						Bstat = line[6];
-	// 						if (gene) {
-	// 							try {
-	// 								sig = {};
-	// 								//sig['name'] = gene
-	// 								sig.weight = fc;
-	// 								sig.pval = pVal;
-	// 									sigDict[gene] = sig;
-	// 								count += 1;
-	// 								//if (count < 10) {
-	// 								//	console.log(gene,fc, sig)
-	// 									//}
-	// 							}
-	// 							catch (error) {
-	// 								console.log('cannot insert signature for gene', gene, error);
-	// 							}
-	// 						}
-	// 					});
-	// 					var sigID = new Meteor.Collection.ObjectID();
-	// 					var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
-	// 						'version':version,'contrast':contrastId, 'signature':  sigDict });
-	// 					console.log('signature insert returns', sigObj);
-	// 				}
-	// 				idList.push(blob._id);
-	// 			}
-	// 		}) ; /* each item in report.list */
-	// 		var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
-	// 		/* remove auto post
-	// 		var post = {
-	// 			title: "Results for contrast: "+contrastName,
-	// 			url: "/wb/results/"+resObj,
-	// 			body: "this is the results of limmma differential analysis run on 2/14/2015",
-	// 			medbookfiles: idList
-	// 		}
-	// 		console.log('user is ',uid)
-	// 		if (uid) {
-	// 			var user = Meteor.users.findOne({_id:uid})
-	// 			if (user) {
-	// 				console.log('user.services', user.services)
-	// 				var token = user.services.resume.loginTokens[0].hashedToken
-	// 				console.log('before post',post, token, 'username', user.username)
-	// 				HTTP.post("http://localhost:10001/medbookPost", {data:{post:post, token:token}})
-	// 				console.log('after post')
-	// 			}
-	// 		}*/
-	// 		//if (retcode == 0) {
-	// 		//	ntemp.cleanup(function(err, stats) {
-	// 	//			if (err)
-	// 	//				console.log('error deleting temp files', err)
-	// 	//			console.log('deleting temp files');
-	// 	//	  	});
-	// 	//	}
-	// 	};  /* end of whendon */
-  //
-	// 	Meteor.call('runshell', {{get from Meteor.settings.limma_path}}, [expfile,phenofile, '200', 'sig.tab', 'genes.tab', 'mds.pdf'],
-	// 		workDir, contrastId, contrastName, studyID, path.join(workDir,'report.list'), whendone, function(err,response) {
-	// 			if(err) {
-	// 				console.log('serverDataResponse', "pathmark_adapter Error:" + err);
-	// 				return ;
-	// 			}
-	// 	resultObj = response.stderr;
-	// 	console.log('limma started stdout stream id: '+resultObj._id+ ' stdout name '+resultObj.name());
-	// 	var readstream = resultObj.createReadStream('blobs');
-	// 	readstream.setEncoding('utf8');
-	// 	readstream.on('data', function(chunk) {
-	// 		console.log('chunk', chunk);
-	// 	});
-	// });
 };
 
 JobClasses.RunLimma = RunLimma;
