@@ -137,11 +137,10 @@ ParseWranglerFile.prototype.run = function () {
     var deferred = Q.defer();
     textSamplePromise
       .then(Meteor.bindEnvironment(function () {
-        return fileHandler.parse();
+        fileHandler.parse()
+          .then(deferred.resolve)
+          .catch(deferred.reject);
       }, deferred.reject))
-      .then(function () {
-        deferred.resolve();
-      })
       .catch(deferred.reject);
     return deferred.promise;
   } else {

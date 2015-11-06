@@ -1,0 +1,4 @@
+Your best friend (API reference for Q):
+https://github.com/kriskowal/q/wiki/API-Reference
+
+You cannot chain promises when using Meteor.bindEnvironment. This means that .then()s after the .then(Meteor.bindEnvironment(<function>)) will fire immidiately and not after <function> has finished.

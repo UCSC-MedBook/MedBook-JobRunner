@@ -43,5 +43,7 @@ WranglerFileJob = function (job_id) {
     throw "Invalid blob_id";
   }
 };
+WranglerFileJob.prototype = Object.create(Job.prototype);
+WranglerFileJob.prototype.constructor = WranglerFileJob;
 
 JobClasses = {};
