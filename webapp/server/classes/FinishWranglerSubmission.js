@@ -42,7 +42,7 @@ FinishWranglerSubmission.prototype.run = function () {
   // we did it!
   WranglerSubmissions.update(this.job.args.submission_id, {
     $set: {
-      status: "done"
+      status: "editing"
     }
   });
 };
