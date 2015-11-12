@@ -144,17 +144,30 @@ ExportFile.prototype.run = function () {
 
   // create paths for files on the disk
   var workDir = ntemp.mkdirSync('RunLimma');
-  var copyNumberFilePath = path.join(workDir, 'copy_number_data.tsv');
+  var copyNumberFilePath = path.join(workDir, 'copy_number_export.tsv');
   console.log('workDir: ', workDir);
 
   var deferred = Q.defer();
   this.writeCopyNumberFile.call(this, copyNumberFilePath)
     .then(Meteor.bindEnvironment(function () {
       console.log("done writing file!");
+
+      var blob = Blobs.insert(copyNumberFilePath);
+      if (!self.job.user_id) {
+        throw "self.job.user_id not set";
+      }
+      Blobs.update(blob._id, {
+        metadata: {
+          user_id: self.job.user_id,
+        }
+      });
+
       // we did it!
       ExportedFiles.update(self.exportedFile._id, {
         $set: {
-          status: "done"
+          status: "done",
+          blob_id: blob._id,
+          blob_name: blob.original.name,
         }
       });
 
