@@ -106,8 +106,8 @@ RunLimma.prototype.writeExpressionFile = function (filePath) {
   //
   // https://nodejs.org/api/stream.html#stream_event_drain
 
-  // expressionDeferred.resolve will be called when writeNextLine finds the end of
-  // the expression cursor
+  // expressionDeferred.resolve will be called when writeNextLine finds
+  // the end of the expression cursor
   var expressionDeferred = Q.defer();
 
   function niceWrite(toWrite) {
