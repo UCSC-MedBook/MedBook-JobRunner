@@ -181,6 +181,10 @@ RunLimma.prototype.run = function () {
   // hand them off through a Q.all().spread
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
+  var sigPath  path.join(workDir, 'expdata.tab');
+  var topGenePath = path.join(workDir, 'expdata.tab');
+  var plotPath = path.join(workDir, 'expdata.tab');
+  
 
   var outerDeferred = Q.defer();
   self.writePhenoFile.call(self, phenoPath)
@@ -202,7 +206,7 @@ RunLimma.prototype.run = function () {
       // TODO: Robert needs to set the 300 to something
       console.log("Meteor.settings.limma_path:", Meteor.settings.limma_path);
       return spawnCommand(Meteor.settings.limma_path,
-        [phenoPath, expressionPath, 300],
+        [phenoPath, expressionPath, 300, sigPath, topGenePath, plotPath],
         workDir);
     })
     .then(function () {

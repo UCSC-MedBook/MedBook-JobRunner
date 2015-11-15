@@ -1,5 +1,6 @@
 {
   "limma_path": "/data/MedBook/Tools/MedBook-Adapters/limma/medbookAdapterLimma.py",
+  "gsea_path": "/data/MedBook/Tools/MedBook-Adapters/gsea/rgGSEA.py",
   "pathmark_path": "/data/MedBook/Tools/MedBook-Adapters/pathmark/medbookAdapterPATHMARK.py",
   "boxplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot/medbookAdapterBoxplot.py",
   "violinplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot/medbookAdapterViolinPlot.py",
