@@ -94,7 +94,7 @@ ExportFile.prototype.run = function () {
       if (!self.job.user_id) {
         throw "self.job.user_id not set";
       }
-      
+
       Blobs.update(blob._id, {
         metadata: {
           user_id: self.job.user_id,
@@ -125,12 +125,11 @@ ExportFile.prototype.onError = function (e) {
 };
 
 // TODO: print if we're actually going to create one
+console.log("creating index for gene_label in copy_number...");
 CopyNumber.rawCollection().ensureIndex({
   gene_label: 1
 }, function (error, result) {
-  console.log("created index for copy_number");
-  console.log("error:", error);
-  console.log("result:", result);
+  console.log("created index for gene_label in copy_number");
 });
 
 JobClasses.ExportFile = ExportFile;

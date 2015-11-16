@@ -181,10 +181,10 @@ RunLimma.prototype.run = function () {
   // hand them off through a Q.all().spread
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
-  var sigPath  path.join(workDir, 'expdata.tab');
+  var sigPath = path.join(workDir, 'expdata.tab');
   var topGenePath = path.join(workDir, 'expdata.tab');
   var plotPath = path.join(workDir, 'expdata.tab');
-  
+
 
   var outerDeferred = Q.defer();
   self.writePhenoFile.call(self, phenoPath)
