@@ -96,7 +96,7 @@ ParseWranglerFile.prototype.run = function () {
     if (blobName.match(/raw_counts/g)) {
       setFileOptions({ normalization: "raw_counts" });
     } else if (blobName.match(/norm_counts/g)) {
-      setFileOptions({ normalization: "counts" });
+      setFileOptions({ normalization: "quantile_counts" });
     } else if (blobName.match(/norm_tpm/g)) {
       setFileOptions({ normalization: "tpm" });
     } else if (blobName.match(/norm_fpkm/g)) {
