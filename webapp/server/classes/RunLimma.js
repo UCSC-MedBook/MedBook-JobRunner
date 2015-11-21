@@ -214,7 +214,7 @@ RunLimma.prototype.run = function () {
       console.log("done with command");
 
     //   var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
-		// 	var idList = [];
+		var idList = [];
 		// 	console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
 			var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
       console.log('list of files array? '+_.isArray(buf)+' first '+_.first(buf));
@@ -241,17 +241,18 @@ RunLimma.prototype.run = function () {
             opts.type = 'undefind';
 
           console.log("creating FS.File");
-		 			var f = new FS.File();
-		 			f.attachData(item, opts);
+		 			//var f = new FS.File();
+		 			//f.attachData(item, opts);
 
-	  			var blob = Blobs.insert(f);
-	  			console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
-		 			if (f.name() == 'genes.tab') {
+	  			//var blob = Blobs.insert(f);
+	  			//console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
+		 			if (filename == 'sig.tab') {
 		 				// Write signature object to MedBook
 		 				console.log('write gene signature');
 		 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
 		 				var count = 0;
-		 				var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
+            console.log('contrast id', self.contrast._id);
+		 				var sig_version = Signatures.find({'contrast':self.contrast._id}, {'version':1, sort: { version: -1 }}).fetch();
 		 				var version = 0.9;
 		 				var sigDict = {'AR' :{'weight':3.3}};
 		 				try {
@@ -291,11 +292,11 @@ RunLimma.prototype.run = function () {
 		 					}
 		 				});
 		 				var sigID = new Meteor.Collection.ObjectID();
-		 				var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
+		 				var sigObj = Signatures.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
 		 					'version':version,'contrast':contrastId, 'signature':  sigDict });
 		 				console.log('signature insert returns', sigObj);
 		 			}
-		 			idList.push(blob._id);
+		 			//idList.push(blob._id);
 		 		}
 		 	}) ; /* each item in report.list */
 		 	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
