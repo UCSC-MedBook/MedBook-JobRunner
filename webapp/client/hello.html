@@ -2,11 +2,27 @@
   <div class="container">
     <h1>Welcome to JobRunner</h1>
 
+    {{> runJobs}}
+
     {{> listJobs}}
 
     {{> jobsHelp}}
   </div>
 </body>
+
+<template name="runJobs">
+  <div class="well">
+    <div class="row">
+      <span id="checkGeneExpression" class="col-sm-6 btn btn-default btn-file">
+        Check gene exprssion
+      </span>
+
+      <span id="convertToExpression2" class="col-sm-6 btn btn-default btn-file">
+        Convert gene_expression to expression2
+      </span>
+    </div>
+  </div>
+</template>
 
 <template name="listJobs">
   <div class="panel panel-default">

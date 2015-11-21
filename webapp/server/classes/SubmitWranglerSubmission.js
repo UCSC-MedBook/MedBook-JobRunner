@@ -60,7 +60,7 @@ SubmitWranglerSubmission.prototype.run = function () {
   }
 
   // make sure we have only one type of submission type
-  var distinctSubmissionTypes = WranglerDocuments.aggregate([
+  var distinctSubmissionTypes = WranglerFiles.aggregate([
         {$match: {submission_id: submission_id}},
         {$project: {submission_type: 1}},
         {

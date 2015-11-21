@@ -1,3 +1,5 @@
+// TODO: do this all in submit submission
+
 function FinishWranglerSubmission (job_id) {
   Job.call(this, job_id);
 

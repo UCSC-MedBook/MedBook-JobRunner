@@ -138,10 +138,8 @@ ParseWranglerFile.prototype.run = function () {
     textSamplePromise
       .then(Meteor.bindEnvironment(function () {
         fileHandler.parse()
-          .then(deferred.resolve)
-          .catch(deferred.reject);
-      }, deferred.reject))
-      .catch(deferred.reject);
+          .then(deferred.resolve);
+      }, deferred.reject));
     return deferred.promise;
   } else {
     return fileHandler.parse();

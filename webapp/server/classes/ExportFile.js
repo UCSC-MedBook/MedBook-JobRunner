@@ -80,40 +80,44 @@ ExportFile.prototype.writeCopyNumberFile = function (filePath) {
   return deferred.promise;
 };
 ExportFile.prototype.run = function () {
-  var self = this;
+  console.log("don't forget to put back in the indexes");
+  throw 'taken out pending the updating of CopyNumber schema';
 
-  // create paths for files on the disk
-  var workDir = ntemp.mkdirSync('RunLimma');
-  var copyNumberFilePath = path.join(workDir, 'copy_number_export.tsv');
-  console.log('workDir: ', workDir);
 
-  var deferred = Q.defer();
-  this.writeCopyNumberFile.call(this, copyNumberFilePath)
-    .then(Meteor.bindEnvironment(function () {
-      var blob = Blobs.insert(copyNumberFilePath);
-      if (!self.job.user_id) {
-        throw "self.job.user_id not set";
-      }
-
-      Blobs.update(blob._id, {
-        metadata: {
-          user_id: self.job.user_id,
-        }
-      });
-
-      // we did it!
-      ExportedFiles.update(self.exportedFile._id, {
-        $set: {
-          status: "done",
-          blob_id: blob._id,
-          blob_name: blob.original.name,
-        }
-      });
-
-      deferred.resolve();
-    }, deferred.reject));
-
-  return deferred.promise;
+  // var self = this;
+  //
+  // // create paths for files on the disk
+  // var workDir = ntemp.mkdirSync('RunLimma');
+  // var copyNumberFilePath = path.join(workDir, 'copy_number_export.tsv');
+  // console.log('workDir: ', workDir);
+  //
+  // var deferred = Q.defer();
+  // this.writeCopyNumberFile.call(this, copyNumberFilePath)
+  //   .then(Meteor.bindEnvironment(function () {
+  //     var blob = Blobs.insert(copyNumberFilePath);
+  //     if (!self.job.user_id) {
+  //       throw "self.job.user_id not set";
+  //     }
+  //
+  //     Blobs.update(blob._id, {
+  //       metadata: {
+  //         user_id: self.job.user_id,
+  //       }
+  //     });
+  //
+  //     // we did it!
+  //     ExportedFiles.update(self.exportedFile._id, {
+  //       $set: {
+  //         status: "done",
+  //         blob_id: blob._id,
+  //         blob_name: blob.original.name,
+  //       }
+  //     });
+  //
+  //     deferred.resolve();
+  //   }, deferred.reject));
+  //
+  // return deferred.promise;
 };
 ExportFile.prototype.onError = function (e) {
   ExportedFiles.update(this.job.args.exported_file_id, {
@@ -124,12 +128,12 @@ ExportFile.prototype.onError = function (e) {
   });
 };
 
-// TODO: print if we're actually going to create one
-console.log("creating index for gene_label in copy_number...");
-CopyNumber.rawCollection().ensureIndex({
-  gene_label: 1
-}, function (error, result) {
-  console.log("created index for gene_label in copy_number");
-});
+// // TODO: print if we're actually going to create one
+// console.log("creating index for gene_label in copy_number...");
+// CopyNumber.rawCollection().ensureIndex({
+//   gene_label: 1
+// }, function (error, result) {
+//   console.log("created index for gene_label in copy_number");
+// });
 
 JobClasses.ExportFile = ExportFile;
