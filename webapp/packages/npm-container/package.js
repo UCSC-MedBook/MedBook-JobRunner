@@ -1,5 +1,6 @@
 var path = Npm.require('path');
 var fs = Npm.require('fs');
+mime = Npm.require('mime');
 
 Package.describe({
   summary: 'Contains all your npm dependencies',

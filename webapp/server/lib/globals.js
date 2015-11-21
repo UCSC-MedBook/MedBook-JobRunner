@@ -6,7 +6,6 @@ ntemp = Meteor.npmRequire('temp').track();
 path = Npm.require('path');
 fs = Npm.require('fs');
 spawn = Npm.require('child_process').spawn;
-
 // gets the first part of a string, adds "..." at the end if greater than 50
 // characters long
 firstPartOfLine = function (line) {

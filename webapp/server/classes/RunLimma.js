@@ -1,3 +1,4 @@
+fs = Npm.require('fs');
 function RunLimma (job_id) {
   Job.call(this, job_id);
 
@@ -215,99 +216,107 @@ RunLimma.prototype.run = function () {
     //   var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
 		// 	var idList = [];
 		// 	console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
-		// 	var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
-		// 	_.each(buf, function(item) {
-		// 		if (item) {
-		// 			var opts = {};
-		// 			ext = path.extname(item).toString();
-		// 			filename = path.basename(item).toString();
-		// 			if (ext == '.xgmml')
-		// 				opts.type = 'text/xgmml';
-		// 			else if (ext == '.sif')
-		// 				opts.type = 'text/network';
-		// 			else if (ext == '.tab')
-		// 				opts.type = 'text/tab-separated-values';
-		// 			//else if (filename == 'genes.tab')
-		// 			//	opts.type = ' Top Diff Genes'
-		// 			else
-		// 				opts.type = mime.lookup(item);
-    //
-		// 			var f = new FS.File();
-		// 			f.attachData(item, opts);
-    //
-		// 			var blob = Blobs.insert(f);
-		// 			console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
-		// 			if (f.name() == 'genes.tab') {
-		// 				// Write signature object to MedBook
-		// 				console.log('write gene signature');
-		// 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
-		// 				var count = 0;
-		// 				var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
-		// 				var version = 0.9;
-		// 				var sigDict = {'AR' :{'weight':3.3}};
-		// 				try {
-		// 					version = Number(sig_version[0].version);
-		// 				}
-		// 				catch(error) {
-		// 					version = 0.9;
-		// 				}
-		// 				console.log('previous signature version', version);
-		// 				version = version + 0.1;
-		// 				_.each(sig_lines, function(sig_line) {
-		// 					var line = sig_line.split('\t');
-    //
-		// 					// logFC AveExpr t P.Value adj.P.Val B
-		// 					gene = line[0];
-		// 					fc = line[1];
-		// 					aveExp = line[2];
-		// 					tStat = line[3];
-		// 					pVal = line[4];
-		// 					adjPval = line[5];
-		// 					Bstat = line[6];
-		// 					if (gene) {
-		// 						try {
-		// 							sig = {};
-		// 							//sig['name'] = gene
-		// 							sig.weight = fc;
-		// 							sig.pval = pVal;
-		// 								sigDict[gene] = sig;
-		// 							count += 1;
-		// 							//if (count < 10) {
-		// 							//	console.log(gene,fc, sig)
-		// 								//}
-		// 						}
-		// 						catch (error) {
-		// 							console.log('cannot insert signature for gene', gene, error);
-		// 						}
-		// 					}
-		// 				});
-		// 				var sigID = new Meteor.Collection.ObjectID();
-		// 				var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
-		// 					'version':version,'contrast':contrastId, 'signature':  sigDict });
-		// 				console.log('signature insert returns', sigObj);
-		// 			}
-		// 			idList.push(blob._id);
-		// 		}
-		// 	}) ; /* each item in report.list */
-		// 	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
-		// 	/* remove auto post
-		// 	var post = {
-		// 		title: "Results for contrast: "+contrastName,
-		// 		url: "/wb/results/"+resObj,
-		// 		body: "this is the results of limmma differential analysis run on 2/14/2015",
-		// 		medbookfiles: idList
-		// 	}
-		// 	console.log('user is ',uid)
-		// 	if (uid) {
-		// 		var user = Meteor.users.findOne({_id:uid})
-		// 		if (user) {
-		// 			console.log('user.services', user.services)
-		// 			var token = user.services.resume.loginTokens[0].hashedToken
-		// 			console.log('before post',post, token, 'username', user.username)
-		// 			HTTP.post("http://localhost:10001/medbookPost", {data:{post:post, token:token}})
-		// 			console.log('after post')
-		// 		}
-		// 	}*/
+			var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
+      console.log('list of files array? '+_.isArray(buf)+' first '+_.first(buf));
+      console.log('all'+buf);
+		 	_.each(buf, function(item) {
+		 		if (item) {
+		 			var opts = {};
+          console.log('item', item);
+		 			ext = path.extname(item).toString();
+          console.log('ext', ext);
+		 			filename = path.basename(item).toString();
+          console.log('filename', filename);
+		 			if (ext == '.xgmml')
+		 				opts.type = 'text/xgmml';
+		 			else if (ext == '.sif')
+		 				opts.type = 'text/network';
+		 			else if (ext == '.tab')
+		 				opts.type = 'text/tab-separated-values';
+		 			else if (filename == 'genes.tab')
+		 				opts.type = ' Top Diff Genes'
+		 			else
+		 			 	//opts.type = mime.lookup(item);
+            //FIX ME add mime
+            opts.type = 'undefind';
+
+          console.log("creating FS.File");
+		 			var f = new FS.File();
+		 			f.attachData(item, opts);
+
+	  			var blob = Blobs.insert(f);
+	  			console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
+		 			if (f.name() == 'genes.tab') {
+		 				// Write signature object to MedBook
+		 				console.log('write gene signature');
+		 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
+		 				var count = 0;
+		 				var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
+		 				var version = 0.9;
+		 				var sigDict = {'AR' :{'weight':3.3}};
+		 				try {
+		 					version = Number(sig_version[0].version);
+		 				}
+		 				catch(error) {
+		 					version = 0.9;
+		 				}
+		 				console.log('previous signature version', version);
+		 				version = version + 0.1;
+		 				_.each(sig_lines, function(sig_line) {
+		 					var line = sig_line.split('\t');
+
+	  					// logFC AveExpr t P.Value adj.P.Val B
+							gene = line[0];
+		 					fc = line[1];
+		 					aveExp = line[2];
+		 					tStat = line[3];
+							pVal = line[4];
+		 					adjPval = line[5];
+		 					Bstat = line[6];
+		 					if (gene) {
+		 						try {
+		 							sig = {};
+		 							sig['name'] = gene
+		 							sig.weight = fc;
+		 							sig.pval = pVal;
+									sigDict[gene] = sig;
+		 							count += 1;
+		 							//if (count < 10) {
+		 							//	console.log(gene,fc, sig)
+		 								//}
+		 						}
+		 						catch (error) {
+		 							console.log('cannot insert signature for gene', gene, error);
+		 						}
+		 					}
+		 				});
+		 				var sigID = new Meteor.Collection.ObjectID();
+		 				var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
+		 					'version':version,'contrast':contrastId, 'signature':  sigDict });
+		 				console.log('signature insert returns', sigObj);
+		 			}
+		 			idList.push(blob._id);
+		 		}
+		 	}) ; /* each item in report.list */
+		 	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
+		 	/* remove auto post
+		 	var post = {
+		    	title: "Results for contrast: "+contrastName,
+		 		url: "/wb/results/"+resObj,
+		 		body: "this is the results of limmma differential analysis run on 2/14/2015",
+		 		medbookfiles: idList
+		 	}
+		 	console.log('user is ',uid)
+		 	if (uid) {
+		 		var user = Meteor.users.findOne({_id:uid})
+		 		if (user) {
+		 			console.log('user.services', user.services)
+		 			var token = user.services.resume.loginTokens[0].hashedToken
+		 			console.log('before post',post, token, 'username', user.username)
+		 			HTTP.post("http://localhost:10001/medbookPost", {data:{post:post, token:token}})
+		 			console.log('after post')
+		 		}
+		 	}*/
 		// 	//if (retcode == 0) {
 		// 	//	ntemp.cleanup(function(err, stats) {
 		// //			if (err)
