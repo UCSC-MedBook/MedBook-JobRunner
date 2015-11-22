@@ -2,6 +2,7 @@ function runNextJob () {
   // grab the first job
   var mongoJob = Jobs.findOne({ "status": "waiting" },
       { sort: [["date_modified", "ascending"]] });
+  var job; // undefined for the moment
 
   // if there's no job available, quit
   if (!mongoJob) {
@@ -21,20 +22,36 @@ function runNextJob () {
   }
 
   function retryLater (error_description) {
-    if (error_description) {
-      console.log("job: retrying - " + error_description);
-      Jobs.update(mongoJob._id, {
+    if (mongoJob.retry_count > 120) { // give them at least 2 minutes
+      error_description = 'too many retries: ' + error_description;
+
+      if (job) {
+        job.onError('too many retries');
+      }
+
+      console.log("job thrown out after too many retries");
+      Jobs.update(mongoJob.id, {
         $set: {
-          status: "waiting",
-          error_description: error_description,
-        },
-        $inc: { "retry_count": 1 }
+          status: 'error',
+          error_description: 'too many retries'
+        }
       });
     } else {
-      // sometimes we just want to throw it back and not tell anyone
-      Jobs.update(mongoJob._id, {
-        $set: { status: "waiting" },
-      });
+      if (error_description) {
+        console.log("job: retrying - " + error_description);
+        Jobs.update(mongoJob._id, {
+          $set: {
+            status: "waiting",
+            error_description: error_description,
+          },
+          $inc: { "retry_count": 1 }
+        });
+      } else {
+        // sometimes we just want to throw it back and not tell anyone
+        Jobs.update(mongoJob._id, {
+          $set: { status: "waiting" },
+        });
+      }
     }
   }
 
@@ -82,7 +99,6 @@ function runNextJob () {
   }
 
   // create a Job object
-  var job;
   try {
     job = new jobClass(mongoJob._id);
   } catch (e) {
