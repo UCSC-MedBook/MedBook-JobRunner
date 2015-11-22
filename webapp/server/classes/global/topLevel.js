@@ -9,7 +9,7 @@ Job = function (job_id) {
   this.reasonForRetry = false;
 };
 Job.prototype.run = function() {
-  console.log("no run function defined");
+  console.log("run has not been overridden in the job");
 };
 Job.prototype.retry = function(reasonForRetry) {
   // TODO: this needs documentation big time... or maybe needs to be changed...
@@ -19,10 +19,10 @@ Job.prototype.retry = function(reasonForRetry) {
   this.reasonForRetry = reasonForRetry;
 };
 Job.prototype.onError = function(e) {
-  console.log("No onError function defined");
+  console.log("onSuccess has not been overridden in the job");
 };
 Job.prototype.onSuccess = function () {
-  console.log("No onSuccess function defined");
+  console.log("onSuccess has not been overridden in the job");
 };
 
 WranglerFileJob = function (job_id) {
