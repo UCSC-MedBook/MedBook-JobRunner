@@ -1,10 +1,12 @@
 function ReloadGenesCollection (job_id) {
   Job.call(this, job_id);
+
+  // TODO: make sure the blob is stored
 }
 ReloadGenesCollection.prototype = Object.create(Job.prototype);
 ReloadGenesCollection.prototype.constructor = ReloadGenesCollection;
 ReloadGenesCollection.prototype.run = function () {
-  console.log("run method");
+  Genes.remove({}); // TODO: scary!
 
   fileHandler = new WranglerFileTypes.HGNCGeneList(this.job.args.blob_id);
   return fileHandler.parse();
