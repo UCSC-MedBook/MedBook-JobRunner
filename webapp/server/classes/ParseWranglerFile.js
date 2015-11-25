@@ -131,7 +131,7 @@ ParseWranglerFile.prototype.run = function () {
   }
 
   // figure out which FileHandler to create
-  var fileHandler = new fileHandlerClass(self.wranglerFile._id, true);
+  var fileHandler = new fileHandlerClass(self.wranglerFile._id);
 
   if (textSamplePromise) {
     var deferred = Q.defer();

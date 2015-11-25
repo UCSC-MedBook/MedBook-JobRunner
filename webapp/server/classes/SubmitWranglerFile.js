@@ -6,7 +6,7 @@ SubmitWranglerFile.prototype.constructor = SubmitWranglerFile;
 SubmitWranglerFile.prototype.run = function () {
   // figure out which FileHandler to create
   var fileHandler = new WranglerFileTypes[this.wranglerFile.options.file_type]
-      (this.wranglerFile._id, false);
+      (this.wranglerFile._id);
   return fileHandler.parse();
 };
 SubmitWranglerFile.prototype.onError = function (e) {

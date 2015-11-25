@@ -107,6 +107,7 @@ function runNextJob () {
       $set: {
         status: "error",
         error_description: e.toString(),
+        stack_trace: e.stack,
       }
     });
     return;
@@ -148,13 +149,16 @@ function runNextJob () {
   try { // wrap so we can catch errors in job.run()
     var boundNope = Meteor.bindEnvironment(nope);
     Q.when(job.run())
-      .then(Meteor.bindEnvironment(function (result) {
+      .then(Meteor.bindEnvironment(function (output) {
         if (job.reasonForRetry) {
           retryLater(job.reasonForRetry);
         } else {
-          job.onSuccess(result);
+          job.onSuccess(output);
           Jobs.update(mongoJob._id, {
-            $set: { status: "done" }
+            $set: {
+              output: output,
+              status: "done"
+            }
           });
           console.log("job: done");
         }
