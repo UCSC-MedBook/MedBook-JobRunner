@@ -24,7 +24,7 @@ function RunLimma (job_id) {
     throw "not enough samples in contrast to estimate variance";
   }
 
-  console.log('# of samples in each side of' , this.contrast.name,': ' ,
+  console.log('job', job_id, 'top gene count', top_gene_count, '# of samples in each side of' , this.contrast.name,': ' ,
       this.contrast.list1.length, 'vs',this.contrast.list2.length);
 
   this.study = Studies.findOne({ id: this.contrast.studyID });
@@ -45,6 +45,7 @@ RunLimma.prototype.constructor = RunLimma;
 // NOTE: no attempt to avoid the internal Node buffer has been made
 // here because this file shouldn't be long enough to need it.
 RunLimma.prototype.writePhenoFile = function (filePath) {
+  // self = this #2
   var self = this;
 
   var phenoWriteStream = fs.createWriteStream(filePath);
@@ -72,6 +73,7 @@ RunLimma.prototype.writePhenoFile = function (filePath) {
 // Writes the data in the expression file
 // Does some cool stuff with promises to buffer writing to the disk.
 RunLimma.prototype.writeExpressionFile = function (filePath) {
+  // self = this #3
   var self = this;
 
   var writeStream = fs.createWriteStream(filePath);
@@ -172,6 +174,7 @@ RunLimma.prototype.writeExpressionFile = function (filePath) {
 };
 
 RunLimma.prototype.run = function () {
+  // WHAT THIS HELL IS THIS AND SELF?????? EXPLAIN!!!!!!  self = this #1
   var self = this;
 
   // create paths for files on the disk
@@ -185,12 +188,17 @@ RunLimma.prototype.run = function () {
   var sigPath = path.join(workDir, 'report', 'sig.tab');
   var topGenePath = path.join(workDir, 'report','topgene.tab');
   var plotPath = path.join(workDir, 'report','mds.pdf');
+  var contrastName = this.contrast.name;
+  var studyID = this.contrast.studyID;
+  var contrastId = this.contrast._id;
+  //console.log('contrastId', contrastId, this.contrast);
 
 
   var outerDeferred = Q.defer();
   self.writePhenoFile.call(self, phenoPath)
     .then(function () {
       console.log("done writing phenofile");
+      // more MAGIC this <> self because we are in the secret anonymous function chained callback for writePheonFile
       return self.writeExpressionFile.call(self, expressionPath);
     })
     .then(function () {
@@ -207,24 +215,22 @@ RunLimma.prototype.run = function () {
       // TODO: Robert needs to set the 300 to something
       console.log("Meteor.settings.limma_path:", Meteor.settings.limma_path);
       return spawnCommand(Meteor.settings.limma_path,
-        [expressionPath, phenoPath, 300, sigPath, topGenePath, plotPath],
+        [expressionPath, phenoPath, self.top_gene_count, sigPath, topGenePath, plotPath],
         workDir);
     })
-    .then(function () {
+    .then(Meteor.bindEnvironment ( function () {
       console.log("done with command");
 
     //   var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
-		var idList = [];
+  		var idList = [];
+      var blobList = [];
+      var output_obj = {};
 		// 	console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
 			var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
-      console.log('list of files array? '+_.isArray(buf)+' first '+_.first(buf));
-      console.log('all'+buf);
 		 	_.each(buf, function(item) {
 		 		if (item) {
 		 			var opts = {};
-          console.log('item', item);
 		 			ext = path.extname(item).toString();
-          console.log('ext', ext);
 		 			filename = path.basename(item).toString();
           console.log('filename', filename);
 		 			if (ext == '.xgmml')
@@ -234,7 +240,7 @@ RunLimma.prototype.run = function () {
 		 			else if (ext == '.tab')
 		 				opts.type = 'text/tab-separated-values';
 		 			else if (filename == 'genes.tab')
-		 				opts.type = ' Top Diff Genes'
+		 				opts.type = ' Top Diff Genes';
 		 			else
 		 			 	//opts.type = mime.lookup(item);
             //FIX ME add mime
@@ -244,7 +250,8 @@ RunLimma.prototype.run = function () {
 		 			//var f = new FS.File();
 		 			//f.attachData(item, opts);
 
-	  			//var blob = Blobs.insert(f);
+	  			var blob = Blobs.insert(item);
+          blobList.push(blob._id);
 	  			//console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
 		 			if (filename == 'sig.tab') {
 		 				// Write signature object to MedBook
@@ -252,17 +259,18 @@ RunLimma.prototype.run = function () {
 		 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
 		 				var count = 0;
             console.log('contrast id', self.contrast._id);
-		 				var sig_version = Signatures.find({'contrast':self.contrast._id}, {'version':1, sort: { version: -1 }}).fetch();
-		 				var version = 0.9;
-		 				var sigDict = {'AR' :{'weight':3.3}};
+		 				var sig_version = Signatures.find({'contrast_id':self.contrast._id}, {'version':1, sort: { version: -1 }}).fetch();
+		 				var version = 1;
+		 				//var sigDict = {'AR' :{'weight':3.3}};
+            var sigArr = [];
 		 				try {
 		 					version = Number(sig_version[0].version);
 		 				}
 		 				catch(error) {
-		 					version = 0.9;
+		 					version = 1;
 		 				}
 		 				console.log('previous signature version', version);
-		 				version = version + 0.1;
+		 				version = version + 1;
 		 				_.each(sig_lines, function(sig_line) {
 		 					var line = sig_line.split('\t');
 
@@ -277,10 +285,12 @@ RunLimma.prototype.run = function () {
 		 					if (gene) {
 		 						try {
 		 							sig = {};
-		 							sig['name'] = gene
+		 							sig.name = gene;
 		 							sig.weight = fc;
 		 							sig.pval = pVal;
-									sigDict[gene] = sig;
+                  if (count < 10) {
+                    sigArr.push({gene_id:gene, value:fc});
+                  }
 		 							count += 1;
 		 							//if (count < 10) {
 		 							//	console.log(gene,fc, sig)
@@ -291,15 +301,30 @@ RunLimma.prototype.run = function () {
 		 						}
 		 					}
 		 				});
-		 				var sigID = new Meteor.Collection.ObjectID();
-		 				var sigObj = Signatures.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
-		 					'version':version,'contrast':contrastId, 'signature':  sigDict });
-		 				console.log('signature insert returns', sigObj);
+		 				//var sigID = new Meteor.Collection.ObjectID();
+            console.log('insert sig', 'contrast', self.contrast._id, contrastId, 'version', version, 'name', contrastName, 'length of signature', sigArr.length);
+		 				var sigObj = Signatures.insert({'name':contrastName, 'studyID': studyID, 'label': contrastName, 'type': 'differential',
+		 					'version':version,'contrast_id':self.contrast._id, 'dense_weights':  sigArr , 'description': 'limma sig', 'algorithm': 'limma'}, function(err, res_id) {
+                if (err) {
+                   console.log('insert error, ', err);
+                   Meteor.Error("Cannot insert signature");
+                }
+                console.log('insert done id=', res_id);
+                if (sigObj) {
+                  output_obj.signature = res_id;
+                }
+              });
+  		 				console.log('signature insert from sig.tab returns', sigObj);
 		 			}
 		 			//idList.push(blob._id);
 		 		}
 		 	}) ; /* each item in report.list */
-		 	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
+      if (blobList) {
+          output_obj.blobs = blobList;
+      }
+      console.log('update job', output_obj);
+      var update_res = Jobs.update({_id:self.job._id}, {$set:{output:output_obj}});
+		 //	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
 		 	/* remove auto post
 		 	var post = {
 		    	title: "Results for contrast: "+contrastName,
@@ -328,7 +353,8 @@ RunLimma.prototype.run = function () {
 		// };  /* end of whendon */
 
       outerDeferred.resolve();
-    })
+    },outerDeferred.reject)
+  )
     .catch(outerDeferred.reject);
 
   return outerDeferred.promise;
