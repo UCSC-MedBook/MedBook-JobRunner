@@ -323,7 +323,6 @@ RunLimma.prototype.run = function () {
           output_obj.blobs = blobList;
       }
       console.log('update job', output_obj);
-      var update_res = Jobs.update({_id:self.job._id}, {$set:{output:output_obj}});
 		 //	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
 		 	/* remove auto post
 		 	var post = {
@@ -352,9 +351,8 @@ RunLimma.prototype.run = function () {
 		// //	}
 		// };  /* end of whendon */
 
-      outerDeferred.resolve();
-    },outerDeferred.reject)
-  )
+      outerDeferred.resolve(output_obj);
+    }, outerDeferred.reject))
     .catch(outerDeferred.reject);
 
   return outerDeferred.promise;
