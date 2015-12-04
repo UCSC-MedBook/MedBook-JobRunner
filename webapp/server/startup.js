@@ -66,6 +66,7 @@ function runNextJob () {
   // this is down here because theoretically we could be running two tasks from
   // the same user and we want to make sure we quit out before printing if
   // that comes to pass
+  console.log("");
   console.log("job: running - ", mongoJob.name);
 
   // check to see if something else has to be done first
