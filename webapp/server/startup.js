@@ -178,7 +178,7 @@ Meteor.startup(function () {
   }, {
     $set: {
       status: "error",
-      ription: "Server restarted"
+      error_description: "Server restarted"
     }
   }, {multi: true});
 
