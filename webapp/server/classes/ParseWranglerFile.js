@@ -10,15 +10,15 @@ function setBlobTextSample () {
   var blob_text_sample = "";
   var lineNumber = 0;
   var characters = 250;
-  var lines = 5;
+  var maxLines = 5;
 
   var bylineStream = byLine(this.blob.createReadStream("blobs"));
   bylineStream.on('data', Meteor.bindEnvironment(function (lineObject) {
     lineNumber++;
-    if (lineNumber <= lines) {
+    if (lineNumber <= maxLines) {
       blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
 
-      if (lineNumber === lines) {
+      if (lineNumber === maxLines) {
         WranglerFiles.update(self.wranglerFile._id, {
           $set: {
             blob_text_sample: blob_text_sample
@@ -26,15 +26,23 @@ function setBlobTextSample () {
         });
       }
     }
-  }));
+  }, deferred.reject));
   bylineStream.on('end', Meteor.bindEnvironment(function () {
+    var setObject = {
+      blob_line_count: lineNumber
+    };
+
+    // in case blob_text_sample not set yet
+    if (lineNumber < maxLines) {
+      setObject.blob_text_sample = blob_text_sample;
+    }
+
     WranglerFiles.update(self.wranglerFile._id, {
-      $set: {
-        blob_line_count: lineNumber
-      }
+      $set: setObject
     });
+
     deferred.resolve();
-  }));
+  }, deferred.reject));
 
   return deferred.promise;
 }
@@ -51,101 +59,94 @@ ParseWranglerFile.prototype.run = function () {
   });
 
   // set blob_text_sample
-  // NOTE: this is an async function
   var textSamplePromise;
   if (!this.wranglerFile.blob_text_sample) {
+    console.log("about to call setBlobTextSample");
     textSamplePromise = setBlobTextSample.call(this);
   }
 
-  // try to guess options that have not been manually specified
-  var options = self.wranglerFile.options;
-  if (options === undefined) {
-    options = {};
-  }
-  function setFileOptions(newOptions) {
-    _.extend(options, newOptions); // keeps `options` up to doate
-    WranglerFiles.update(self.wranglerFile._id, {
-      $set: {
-        "options": options
+  var deferred = Q.defer();
+
+  Q.when(textSamplePromise)
+    .then(Meteor.bindEnvironment(function () {
+      // try to guess options that have not been manually specified
+      var options = self.wranglerFile.options;
+      if (options === undefined) {
+        options = {};
       }
-    });
-  }
-
-  // for guesses of file name
-  var blobName = self.blob.original.name;
-  function extensionEquals(extension) {
-    return blobName.slice(-extension.length) === extension;
-  }
-
-  // try to guess file_type
-  if (!options.file_type) {
-    if (extensionEquals(".vcf")) {
-      setFileOptions({ file_type: "MutationVCF" });
-    }
-    if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
-      setFileOptions({ file_type: "BD2KGeneExpression" });
-    }
-    if (extensionEquals(".xls") || extensionEquals("xlsx")) {
-      setFileOptions({ file_type: "BasicClinical" });
-    }
-  }
-
-  // try to guess normalization
-  if (!options.normalization) {
-    // try to guess normalization
-    if (blobName.match(/raw_counts/g)) {
-      setFileOptions({ normalization: "raw_counts" });
-    } else if (blobName.match(/norm_counts/g)) {
-      setFileOptions({ normalization: "quantile_counts" });
-    } else if (blobName.match(/norm_tpm/g)) {
-      setFileOptions({ normalization: "tpm" });
-    } else if (blobName.match(/norm_fpkm/g)) {
-      setFileOptions({ normalization: "fpkm" });
-    }
-  }
-
-  // force certain options
-  if (options.file_type === "TCGAGeneExpression") {
-    setFileOptions({ normalization: "counts" });
-  }
-
-  // we can now show the options to the user
-  WranglerFiles.update(this.wranglerFile._id, {
-    $set: { parsed_options_once_already: true }
-  });
-
-  // make sure we've got a file_type
-  if (!options.file_type) {
-    WranglerFiles.update(this.wranglerFile._id, {
-      $set: {
-        error_description: "File type could not be inferred. " +
-            "Please manually select a file type"
+      function setFileOptions(newOptions) {
+        _.extend(options, newOptions); // keeps `options` up to doate
+        WranglerFiles.update(self.wranglerFile._id, {
+          $set: {
+            "options": options
+          }
+        });
       }
-    });
-    return;
-  }
 
-  var fileHandlerClass = WranglerFileTypes[options.file_type];
-  if (!fileHandlerClass) {
-    throw new Error("file handler not yet defined (" + options.file_type +
-        ")");
-  }
+      // for guesses of file name
+      var blobName = self.blob.original.name;
+      function extensionEquals(extension) {
+        return blobName.slice(-extension.length) === extension;
+      }
 
-  // figure out which FileHandler to create
-  var fileHandler = new fileHandlerClass(self.wranglerFile._id);
+      // try to guess file_type
+      if (!options.file_type) {
+        if (extensionEquals(".vcf")) {
+          setFileOptions({ file_type: "MutationVCF" });
+        }
+        if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
+          setFileOptions({ file_type: "BD2KGeneExpression" });
+        }
+        if (extensionEquals(".xls") || extensionEquals("xlsx")) {
+          setFileOptions({ file_type: "BasicClinical" });
+        }
+      }
 
-  if (textSamplePromise) {
-    var deferred = Q.defer();
-    textSamplePromise
-      .then(Meteor.bindEnvironment(function () {
-        fileHandler.parse()
-          .then(deferred.resolve)
-          .catch(deferred.reject);
-      }, deferred.reject));
-    return deferred.promise;
-  } else {
-    return fileHandler.parse();
-  }
+      // try to guess normalization
+      if (!options.normalization) {
+        // try to guess normalization
+        if (blobName.match(/raw_counts/g)) {
+          setFileOptions({ normalization: "raw_counts" });
+        } else if (blobName.match(/norm_counts/g)) {
+          setFileOptions({ normalization: "quantile_counts" });
+        } else if (blobName.match(/norm_tpm/g)) {
+          setFileOptions({ normalization: "tpm" });
+        } else if (blobName.match(/norm_fpkm/g)) {
+          setFileOptions({ normalization: "fpkm" });
+        }
+      }
+
+      // force certain options
+      if (options.file_type === "TCGAGeneExpression") {
+        setFileOptions({ normalization: "counts" });
+      }
+
+      // we can now show the options to the user
+      WranglerFiles.update(self.wranglerFile._id, {
+        $set: { parsed_options_once_already: true }
+      });
+
+      // make sure we've got a file_type
+      if (!options.file_type) {
+        throw "File type could not be inferred. Please manually select a file type";
+      }
+
+      var fileHandlerClass = WranglerFileTypes[options.file_type];
+      if (!fileHandlerClass) {
+        throw new Error("file handler not yet defined (" + options.file_type +
+            ")");
+      }
+
+      // figure out which FileHandler to create
+      var fileHandler = new fileHandlerClass(self.wranglerFile._id);
+
+      fileHandler.parse()
+        .then(deferred.resolve)
+        .catch(deferred.reject);
+    }, deferred.reject))
+    .catch(deferred.reject);
+
+  return deferred.promise;
 };
 ParseWranglerFile.prototype.onError = function (error) {
   var error_description = error.toString();
