@@ -127,7 +127,8 @@ ParseWranglerFile.prototype.run = function () {
 
   var fileHandlerClass = WranglerFileTypes[options.file_type];
   if (!fileHandlerClass) {
-    throw "file handler not yet defined (" + options.file_type + ")";
+    throw new Error("file handler not yet defined (" + options.file_type +
+        ")");
   }
 
   // figure out which FileHandler to create
@@ -138,7 +139,8 @@ ParseWranglerFile.prototype.run = function () {
     textSamplePromise
       .then(Meteor.bindEnvironment(function () {
         fileHandler.parse()
-          .then(deferred.resolve);
+          .then(deferred.resolve)
+          .catch(deferred.reject);
       }, deferred.reject));
     return deferred.promise;
   } else {
