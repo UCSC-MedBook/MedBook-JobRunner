@@ -38,14 +38,16 @@ spawnCommand = function (command, args, cwd) {
 
   var deferred = Q.defer();
 
-  var proc = spawn(command, args, { cwd: cwd });
+  var proc = spawn(command, args, { cwd: cwd, stdio: ['ignore', 1, 2] });
 
   proc.on("error", function (error) {
+    console.log("job got on error", error);
     deferred.reject(new Error(command + " " + args.join(" ") + " in " +
         cwd + " encountered error " + error.message));
   });
   proc.on("exit", function(code) {
     if (code !== 0) {
+      console.log("job returned nonzero", code);
       deferred.reject(new Error(command + " " + args.join(" ") + " in " +
           cwd + " exited with code " + code));
     } else {

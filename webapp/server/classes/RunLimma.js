@@ -196,9 +196,10 @@ RunLimma.prototype.run = function () {
   // hand them off through a Q.all().spread
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
-  var sigPath = path.join(workDir, 'report', 'model_fit.tab');
-  var topGenePath = path.join(workDir, 'report','Topgene.tab');
-  var plotPath = path.join(workDir, 'report','mds.pdf');
+  var sigPath = path.join(workDir, 'model_fit.tab');
+  var topGenePath = path.join(workDir, 'Topgene.tab');
+  var plotPath = path.join(workDir, 'mds.pdf');
+  var voomPath = path.join(workDir, 'voom.pdf');
   var contrastName = this.contrast.name;
   var studyID = this.contrast.studyID;
   var contrastId = this.contrast._id;
@@ -226,8 +227,11 @@ RunLimma.prototype.run = function () {
       // TODO: Robert needs to set the 300 to something
       console.log("Meteor.settings.limma_path:", Meteor.settings.limma_path);
       //console.log('spawn limma', expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath);
-      return spawnCommand(Meteor.settings.limma_path,
-        [expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath],
+      //return spawnCommand(Meteor.settings.limma_path,
+      //  [expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath],
+      //  workDir);
+      return spawnCommand("Rscript",
+        [Meteor.settings.limma_path,expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath],
         workDir);
     })
     .then(Meteor.bindEnvironment ( function () {
@@ -236,7 +240,8 @@ RunLimma.prototype.run = function () {
   		var idList = [];
       var blobList = [];
       var output_obj = {};
-			var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
+			//var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
+      buf = [topGenePath, plotPath ];
 		 	_.each(buf, function(item) {
 		 		if (item) {
 		 			var opts = {};
@@ -262,7 +267,6 @@ RunLimma.prototype.run = function () {
 
 	  			var blob = Blobs.insert(item);
           blobList.push(blob._id);
-	  			//console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
 		 			if (filename == 'Topgene.tab') {
 		 				console.log('write signature from Topgene.tab');
             var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
