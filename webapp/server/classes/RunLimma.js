@@ -3,14 +3,25 @@ function RunLimma (job_id) {
   Job.call(this, job_id);
 
   // NOTE: top_gene_count can be a string or a number
+  console.log('Run Limma with ',this.job.args);
   var top_gene_count = this.job.args.top_gene_count;
+  var user_id = this.job.user_id
+  this.email_address = Meteor.call('get_email', user_id);
+  console.log('user id running job', user_id, this.email_address, 'args', this.job.args);
   if (!top_gene_count) {
-    throw "top_gene_count not defined";
+    top_gene_count = 5000;
+    //throw "top_gene_count not defined";
   }
   if (isNaN(top_gene_count)) {
     throw "top_gene_count not a number: " + top_gene_count;
   }
   this.top_gene_count = parseInt(top_gene_count);
+  if (this.job.args.correction) {
+    this.correction = this.job.args.correction;
+  }
+  else {
+    this.correction = "BH";
+  }
 
   // 	var contrast = Contrast.findOne({'_id':contrastId}, {list1:1,'name':1,'studyID':1,_id:0});
   this.contrast = Contrast.findOne(this.job.args.contrast_id);
@@ -185,8 +196,8 @@ RunLimma.prototype.run = function () {
   // hand them off through a Q.all().spread
   var phenoPath = path.join(workDir, 'pheno.tab');
   var expressionPath = path.join(workDir, 'expdata.tab');
-  var sigPath = path.join(workDir, 'report', 'sig.tab');
-  var topGenePath = path.join(workDir, 'report','topgene.tab');
+  var sigPath = path.join(workDir, 'report', 'model_fit.tab');
+  var topGenePath = path.join(workDir, 'report','Topgene.tab');
   var plotPath = path.join(workDir, 'report','mds.pdf');
   var contrastName = this.contrast.name;
   var studyID = this.contrast.studyID;
@@ -214,18 +225,17 @@ RunLimma.prototype.run = function () {
 
       // TODO: Robert needs to set the 300 to something
       console.log("Meteor.settings.limma_path:", Meteor.settings.limma_path);
+      //console.log('spawn limma', expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath);
       return spawnCommand(Meteor.settings.limma_path,
-        [expressionPath, phenoPath, self.top_gene_count, sigPath, topGenePath, plotPath],
+        [expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath],
         workDir);
     })
     .then(Meteor.bindEnvironment ( function () {
       console.log("done with command");
 
-    //   var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
   		var idList = [];
       var blobList = [];
       var output_obj = {};
-		// 	console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
 			var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
 		 	_.each(buf, function(item) {
 		 		if (item) {
@@ -239,7 +249,7 @@ RunLimma.prototype.run = function () {
 		 				opts.type = 'text/network';
 		 			else if (ext == '.tab')
 		 				opts.type = 'text/tab-separated-values';
-		 			else if (filename == 'genes.tab')
+		 			else if (filename == 'Topgene.tab')
 		 				opts.type = ' Top Diff Genes';
 		 			else
 		 			 	//opts.type = mime.lookup(item);
@@ -253,15 +263,13 @@ RunLimma.prototype.run = function () {
 	  			var blob = Blobs.insert(item);
           blobList.push(blob._id);
 	  			//console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
-		 			if (filename == 'sig.tab') {
-		 				// Write signature object to MedBook
-		 				console.log('write gene signature');
-		 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
+		 			if (filename == 'Topgene.tab') {
+		 				console.log('write signature from Topgene.tab');
+            var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
+            var colheaders = ['Gene', 'Log Fold Change', 'Avg Expression','T stat','Pval', 'FDR','log odds'];
 		 				var count = 0;
-            console.log('contrast id', self.contrast._id);
 		 				var sig_version = Signatures.find({'contrast_id':self.contrast._id}, {'version':1, sort: { version: -1 }}).fetch();
 		 				var version = 1;
-		 				//var sigDict = {'AR' :{'weight':3.3}};
             var sigArr = [];
 		 				try {
 		 					version = Number(sig_version[0].version);
@@ -282,16 +290,13 @@ RunLimma.prototype.run = function () {
 							pVal = line[4];
 		 					adjPval = line[5];
 		 					Bstat = line[6];
+              probability = Math.exp(Bstat)/(1+Math.exp(Bstat));
 		 					if (gene) {
 		 						try {
-		 							sig = {};
-		 							sig.name = gene;
-		 							sig.weight = fc;
-		 							sig.pval = pVal;
-                  if (count < 10) {
-                    sigArr.push({gene_id:gene, value:fc});
+                  if (adjPval < 0.25) {
+                    sigArr.push({gene_id:gene, value:fc, p_value:adjPval, probability:probability});
+  		 							count += 1;
                   }
-		 							count += 1;
 		 							//if (count < 10) {
 		 							//	console.log(gene,fc, sig)
 		 								//}
@@ -300,30 +305,47 @@ RunLimma.prototype.run = function () {
 		 							console.log('cannot insert signature for gene', gene, error);
 		 						}
 		 					}
-		 				});
-		 				//var sigID = new Meteor.Collection.ObjectID();
-            console.log('insert sig', 'contrast', self.contrast._id, contrastId, 'version', version, 'name', contrastName, 'length of signature', sigArr.length);
-		 				var sigObj = Signatures.insert({'name':contrastName, 'studyID': studyID, 'label': contrastName, 'type': 'differential',
-		 					'version':version,'contrast_id':self.contrast._id, 'dense_weights':  sigArr , 'description': 'limma sig', 'algorithm': 'limma'}, function(err, res_id) {
-                if (err) {
-                   console.log('insert error, ', err);
-                   Meteor.Error("Cannot insert signature");
-                }
-                console.log('insert done id=', res_id);
-                if (sigObj) {
-                  output_obj.signature = res_id;
-                }
+            })
+            if (count == 0) {
+              console.warn("No significant genes found in this contrast");
+              Meteor.call('sendEmail',
+                  self.email_address,
+                  'MedBook: Limma job complete with warnings',
+                  'Warning: No significant genes for this Contrast '+ contrastName+ ' click here for results.');
+            }
+            else {
+              console.log(count,'significant genes found in this contrast');
+              console.log('insert sig', 'contrast', self.contrast._id, 'version', version, 'name', contrastName, 'length of signature', sigArr.length);
+  		 				var sigObj = Signatures.insert({'name':contrastName, 'studyID': studyID, 'label': contrastName, 'type': 'differential',
+  		 					'version':version,'contrast_id':self.contrast._id, 'sparse_weights':  sigArr , 'description': 'limma sig', 'algorithm': 'limma'},
+                function(err, res_id) {
+                  if (err) {
+                     console.log('insert error, ', err);
+                     Meteor.Error("Cannot insert signature");
+                  }
+                  console.log('done inserting signature _id=', res_id);
+                  Meteor.call('sendEmail',
+                    self.email_address,
+                    'MedBook: Limma job complete, successfully ',
+                    count.toString()+ ' significant genes found for Contrast ', contrastName, 'click here for results.');
+
+                  if (sigObj) {
+                    output_obj.signature = res_id;
+                  }
               });
-  		 				console.log('signature insert from sig.tab returns', sigObj);
+            }
+          }
+		 			if (filename == 'model_fit.tab') {
+		 				// Write signature object to MedBook
+		 				console.log('ignore model fit from model_fit.tab');
+            var colheaders = ['Gene','coeff.Intercept','coeff.contrastB','stdev','stdev.contrastB','sigma','df.residual','Amean','s2.post','t.Intercept','t.contrastB',	'df.total',	'p.val.Intercept','p.value.contrastB','lods.Intercept',	'lods.contrastB','F','F.p.value']
 		 			}
-		 			//idList.push(blob._id);
 		 		}
 		 	}) ; /* each item in report.list */
       if (blobList) {
           output_obj.blobs = blobList;
       }
       console.log('update job', output_obj);
-		 //	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
 		 	/* remove auto post
 		 	var post = {
 		    	title: "Results for contrast: "+contrastName,
@@ -331,7 +353,6 @@ RunLimma.prototype.run = function () {
 		 		body: "this is the results of limmma differential analysis run on 2/14/2015",
 		 		medbookfiles: idList
 		 	}
-		 	console.log('user is ',uid)
 		 	if (uid) {
 		 		var user = Meteor.users.findOne({_id:uid})
 		 		if (user) {
