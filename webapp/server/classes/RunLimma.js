@@ -234,13 +234,18 @@ RunLimma.prototype.run = function () {
         [Meteor.settings.limma_path,expressionPath, phenoPath, self.top_gene_count, self.correction, sigPath, topGenePath, plotPath],
         workDir);
     })
-    .then(Meteor.bindEnvironment ( function () {
-      console.log("done with command");
+    .then(Meteor.bindEnvironment ( function (code) {
+      console.log("done with command", code);
 
   		var idList = [];
       var blobList = [];
       var output_obj = {};
 			//var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
+      if (code != 0) {
+  	  			var blob = Blobs.insert(code);
+            blobList.push(blob._id);
+      }
+      else  {
       buf = [topGenePath, plotPath ];
 		 	_.each(buf, function(item) {
 		 		if (item) {
@@ -266,6 +271,8 @@ RunLimma.prototype.run = function () {
 		 			//f.attachData(item, opts);
 
 	  			var blob = Blobs.insert(item);
+          var my_user_id = self.job.user_id
+          Blobs.update({_id:blob._id}, {$set:{"metadata.user_id":my_user_id}});
           blobList.push(blob._id);
 		 			if (filename == 'Topgene.tab') {
 		 				console.log('write signature from Topgene.tab');
@@ -346,6 +353,7 @@ RunLimma.prototype.run = function () {
 		 			}
 		 		}
 		 	}) ; /* each item in report.list */
+      }
       if (blobList) {
           output_obj.blobs = blobList;
       }

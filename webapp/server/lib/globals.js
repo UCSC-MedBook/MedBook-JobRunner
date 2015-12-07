@@ -38,7 +38,9 @@ spawnCommand = function (command, args, cwd) {
 
   var deferred = Q.defer();
 
-  var proc = spawn(command, args, { cwd: cwd, stdio: ['ignore', 1, 2] });
+  out = fs.openSync(path.join(cwd,'./out.log'), 'a');
+  err = fs.openSync(path.join(cwd,'./err.log'), 'a');
+  var proc = spawn(command, args, { cwd: cwd, stdio: ['ignore', out, err] });
 
   proc.on("error", function (error) {
     console.log("job got on error", error);
@@ -48,10 +50,11 @@ spawnCommand = function (command, args, cwd) {
   proc.on("exit", function(code) {
     if (code !== 0) {
       console.log("job returned nonzero", code);
-      deferred.reject(new Error(command + " " + args.join(" ") + " in " +
-          cwd + " exited with code " + code));
+      deferred.resolve(path.join(cwd, './err.log') );
+      //deferred.reject(new Error(command + " " + args.join(" ") + " in " +
+      //    cwd + " exited with code " + code));
     } else {
-      deferred.resolve();
+      deferred.resolve(code);
     }
   });
 
