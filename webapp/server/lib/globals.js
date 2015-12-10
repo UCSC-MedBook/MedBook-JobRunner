@@ -31,6 +31,7 @@ firstPartOfLine = function (line) {
 spawnCommand = function (command, args, cwd) {
   if (args && !args.every(function (arg) {
         var type = typeof arg;
+        console.log('arg', arg, 'type', type);
         return type === "boolean" || type === "string" || type === "number";
       })) {
     return Q.reject(new Error("All arguments must be a boolean, string or number"));
