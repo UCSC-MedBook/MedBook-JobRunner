@@ -149,7 +149,7 @@ function runNextJob () {
   // run the job
   try { // wrap so we can catch errors in job.run()
     var boundNope = Meteor.bindEnvironment(nope);
-    Q.when(job.run())
+    Q.when(job.run()).timeout(mongoJob.timeout_length)
       .then(Meteor.bindEnvironment(function (output) {
         if (job.reasonForRetry) {
           retryLater(job.reasonForRetry);
