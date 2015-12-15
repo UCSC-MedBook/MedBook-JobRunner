@@ -3,49 +3,7 @@ function ParseWranglerFile (job_id) {
 }
 ParseWranglerFile.prototype = Object.create(WranglerFileJob.prototype);
 ParseWranglerFile.prototype.constructor = ParseWranglerFile;
-function setBlobTextSample () {
-  var deferred = Q.defer();
 
-  var self = this;
-  var blob_text_sample = "";
-  var lineNumber = 0;
-  var characters = 250;
-  var maxLines = 5;
-
-  var bylineStream = byLine(this.blob.createReadStream("blobs"));
-  bylineStream.on('data', Meteor.bindEnvironment(function (lineObject) {
-    lineNumber++;
-    if (lineNumber <= maxLines) {
-      blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
-
-      if (lineNumber === maxLines) {
-        WranglerFiles.update(self.wranglerFile._id, {
-          $set: {
-            blob_text_sample: blob_text_sample
-          }
-        });
-      }
-    }
-  }, deferred.reject));
-  bylineStream.on('end', Meteor.bindEnvironment(function () {
-    var setObject = {
-      blob_line_count: lineNumber
-    };
-
-    // in case blob_text_sample not set yet
-    if (lineNumber < maxLines) {
-      setObject.blob_text_sample = blob_text_sample;
-    }
-
-    WranglerFiles.update(self.wranglerFile._id, {
-      $set: setObject
-    });
-
-    deferred.resolve();
-  }, deferred.reject));
-
-  return deferred.promise;
-}
 ParseWranglerFile.prototype.run = function () {
   var self = this;
 
@@ -58,17 +16,24 @@ ParseWranglerFile.prototype.run = function () {
     }
   });
 
-  // set blob_text_sample
-  var textSamplePromise;
-  if (!this.wranglerFile.blob_text_sample) {
-    console.log("about to call setBlobTextSample");
-    textSamplePromise = setBlobTextSample.call(this);
+  // get a sample of the text inside the blob, as well as the number of lines
+  // of blob
+  var textSample = {}; // so that textSample.promise will be undefined
+  if (!self.wranglerFile.blob_text_sample) {
+    textSample = Q.defer();
+    getBlobTextSample(self.blob)
+      .then(Meteor.bindEnvironment(function (setObject) {
+        WranglerFiles.update(self.wranglerFile._id, {
+          $set: setObject
+        });
+        textSample.resolve("hello");
+      }, textSample.reject));
   }
 
   var deferred = Q.defer();
-
-  Q.when(textSamplePromise)
-    .then(Meteor.bindEnvironment(function () {
+  Q.when(textSample.promise)
+    .then(Meteor.bindEnvironment(function (first) {
+      console.log("first after getBlobTextSample when:", first);
       // try to guess options that have not been manually specified
       var options = self.wranglerFile.options;
       if (options === undefined) {
