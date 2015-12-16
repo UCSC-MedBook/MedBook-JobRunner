@@ -14,7 +14,7 @@ Job.prototype.run = function() {
 Job.prototype.retry = function(reasonForRetry) {
   // TODO: this needs documentation big time... or maybe needs to be changed...
   if (!reasonForRetry) {
-    reasonForRetry = "unknown reason";
+    reasonForRetry = "Retried for unknown reason";
   }
   this.reasonForRetry = reasonForRetry;
 };

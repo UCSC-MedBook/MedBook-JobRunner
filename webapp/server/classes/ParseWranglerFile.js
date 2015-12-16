@@ -33,14 +33,13 @@ ParseWranglerFile.prototype.run = function () {
   var deferred = Q.defer();
   Q.when(textSample.promise)
     .then(Meteor.bindEnvironment(function (first) {
-      console.log("first after getBlobTextSample when:", first);
       // try to guess options that have not been manually specified
       var options = self.wranglerFile.options;
       if (options === undefined) {
         options = {};
       }
       function setFileOptions(newOptions) {
-        _.extend(options, newOptions); // keeps `options` up to doate
+        _.extend(options, newOptions); // keeps `options` up to date
         WranglerFiles.update(self.wranglerFile._id, {
           $set: {
             "options": options
@@ -83,7 +82,7 @@ ParseWranglerFile.prototype.run = function () {
 
       // force certain options
       if (options.file_type === "TCGAGeneExpression") {
-        setFileOptions({ normalization: "counts" });
+        setFileOptions({ normalization: "quantile_counts" });
       }
 
       // we can now show the options to the user
