@@ -59,7 +59,7 @@ ParseWranglerFile.prototype.run = function () {
           setFileOptions({ file_type: "MutationVCF" });
         }
         if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
-          setFileOptions({ file_type: "BD2KGeneExpression" });
+          setFileOptions({ file_type: "RectangularGeneExpression" });
         }
         if (extensionEquals(".xls") || extensionEquals("xlsx")) {
           setFileOptions({ file_type: "BasicClinical" });
