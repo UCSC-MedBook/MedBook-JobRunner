@@ -8,7 +8,7 @@ ReloadGenesCollection.prototype.constructor = ReloadGenesCollection;
 ReloadGenesCollection.prototype.run = function () {
   Genes.remove({}); // TODO: scary!
 
-  fileHandler = new WranglerFileTypes.HGNCGeneList(this.job.args.blob_id);
+  var fileHandler = new WranglerFileTypes.HGNCGeneList(this.job.args.blob_id);
   return fileHandler.parse();
 };
 ReloadGenesCollection.prototype.onError = function () {
