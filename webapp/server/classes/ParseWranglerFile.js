@@ -57,11 +57,11 @@ ParseWranglerFile.prototype.run = function () {
       if (!options.file_type) {
         if (extensionEquals(".vcf")) {
           setFileOptions({ file_type: "MutationVCF" });
-        }
-        if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
+        } else if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
           setFileOptions({ file_type: "RectangularGeneExpression" });
-        }
-        if (extensionEquals(".xls") || extensionEquals("xlsx")) {
+        } else if (blobName.match(/\.rsem\.isoform\.[a-z_]*\.tab/g)) {
+          setFileOptions({ file_type: "RectangularIsoformExpression" });
+        } else if (extensionEquals(".xls") || extensionEquals("xlsx")) {
           setFileOptions({ file_type: "BasicClinical" });
         }
       }
