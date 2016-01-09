@@ -26,8 +26,6 @@ firstPartOfLine = function (line) {
  * @return {Promise}               A promise for the completion of the command.
  */
 // adapted from https://gist.github.com/Stuk/6226938
-// NOTE: currently the stdout and stderr are ignored, but in the comments
-// for the original gist there's a way to save them.
 spawnCommand = function (command, args, cwd) {
   if (args && !args.every(function (arg) {
         var type = typeof arg;
@@ -39,25 +37,72 @@ spawnCommand = function (command, args, cwd) {
 
   var deferred = Q.defer();
 
-  out = fs.openSync(path.join(cwd,'./out.log'), 'a');
-  err = fs.openSync(path.join(cwd,'./err.log'), 'a');
-  var proc = spawn(command, args, { cwd: cwd, stdio: ['ignore', out, err] });
+  // TODO: what happens to out/err?
+  var outPath = path.join(cwd, "./out.log");
+  var out = fs.openSync(outPath, "a");
+  var errPath = path.join(cwd, "./err.log");
+  var err = fs.openSync(errPath, "a");
+  var proc = spawn(command, args, {
+    cwd: cwd,
+    stdio: ["ignore", out, err]
+  });
 
   proc.on("error", function (error) {
     console.log("job got on error", error);
     deferred.reject(new Error(command + " " + args.join(" ") + " in " +
         cwd + " encountered error " + error.message));
   });
-  proc.on("exit", function(code) {
-    if (code !== 0) {
-      console.log("job returned nonzero", code);
-      deferred.resolve(path.join(cwd, './err.log') );
-      //deferred.reject(new Error(command + " " + args.join(" ") + " in " +
-      //    cwd + " exited with code " + code));
-    } else {
-      deferred.resolve(code);
-    }
+
+  proc.on("exit", function(exitCode) {
+    deferred.resolve({
+      exitCode: exitCode,
+      outPath: outPath,
+      errPath: errPath,
+    });
   });
 
   return deferred.promise;
+};
+
+getBlobTextSample = function (blob) {
+  var deferred = Q.defer();
+
+  var self = this;
+  var blob_text_sample = "";
+  var blob_line_count = 0;
+  var characters = 250;
+  var maxLines = 5;
+
+  var bylineStream = byLine(blob.createReadStream("blobs"));
+  bylineStream.on('data', function (lineObject) {
+    blob_line_count++;
+    if (blob_line_count <= maxLines) {
+      blob_text_sample += lineObject.toString().slice(0, characters) + "\n";
+    }
+  });
+  bylineStream.on('end', function () {
+    deferred.resolve({
+      blob_line_count: blob_line_count,
+      blob_text_sample: blob_text_sample,
+    });
+  });
+  bylineStream.on("error", function () {
+    deferred.reject(new Error("Error getting blob text samplef"));
+  });
+
+  return deferred.promise;
+};
+
+getSetting = function (attribute) {
+  var settings = Meteor.settings;
+  if (!settings) {
+    throw new Error("no settings file");
+  }
+
+  var value = settings[attribute];
+  if (!value) {
+    throw new Error(attribute + " not defined in settings file");
+  }
+
+  return value;
 };

@@ -43,6 +43,7 @@ launch-screen@1.0.2
 less@1.0.14
 livedata@1.0.13
 logging@1.0.7
+medbook:adapters@0.0.1
 medbook:parse-vcf@0.0.1
 medbook:primary-collections@0.0.13
 medbook:wrangler-collections@0.0.19
