@@ -37,14 +37,14 @@ spawnCommand = function (command, args, cwd) {
 
   var deferred = Q.defer();
 
-  // TODO: what happens to out/err?
-  var outPath = path.join(cwd, "./out.log");
-  var out = fs.openSync(outPath, "a");
-  var errPath = path.join(cwd, "./err.log");
-  var err = fs.openSync(errPath, "a");
+  // TODO: what happens to stdout/stderr?
+  var stdoutPath = path.join(cwd, "./stdout.log");
+  var stdout = fs.openSync(stdoutPath, "a");
+  var stderrPath = path.join(cwd, "./stderr.log");
+  var stderr = fs.openSync(stderrPath, "a");
   var proc = spawn(command, args, {
     cwd: cwd,
-    stdio: ["ignore", out, err]
+    stdio: ["ignore", stdout, stderr]
   });
 
   proc.on("error", function (error) {
@@ -56,8 +56,8 @@ spawnCommand = function (command, args, cwd) {
   proc.on("exit", function(exitCode) {
     deferred.resolve({
       exitCode: exitCode,
-      outPath: outPath,
-      errPath: errPath,
+      stdoutPath: stdoutPath,
+      stderrPath: stderrPath,
     });
   });
 

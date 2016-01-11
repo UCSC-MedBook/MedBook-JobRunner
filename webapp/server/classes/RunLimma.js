@@ -10,13 +10,17 @@ RunLimma.prototype.run = function () {
       type: Number,
       min: 1,
     },
-    contrastId: {
+    contrast_label: {
       type: String,
     },
-    correction: {
+    contrast_version: {
+      type: Number,
+    },
+    correction_method: {
       type: String,
       allowedValues: [
-        "BH"
+        "BH",
+        "none"
       ]
     },
   }));
@@ -28,13 +32,16 @@ RunLimma.prototype.run = function () {
   // prepare to write files
   var expressionPath = path.join(workDir, "expdata.tab");
   var phenoPath = path.join(workDir, "pheno.tab");
-  var contrast = Contrasts.findOne(this.job.args.contrastId);
+  var contrast = Contrasts.findOne({
+    contrast_label: this.job.args.contrast_label,
+    version: this.job.args.contrast_version,
+  });
   var expressionSamples = _.flatten([contrast.a_samples, contrast.b_samples]);
 
   // output files
-  var sigPath = path.join(workDir, "model_fit.tab");
+  var modelFitPath = path.join(workDir, "model_fit.tab");
   var topGenePath = path.join(workDir, "Topgene.tab");
-  var plotPath = path.join(workDir, "mds.pdf");
+  var voomPlotPath = path.join(workDir, "mds.pdf");
   // var voomPath = path.join(workDir, "voom.pdf");
 
   var deferred = Q.defer();
@@ -55,13 +62,13 @@ RunLimma.prototype.run = function () {
         expressionPath,
         phenoPath,
         self.job.args.topGeneCount,
-        self.job.args.correction,
-        sigPath,
+        self.job.args.correction_method,
+        modelFitPath,
         topGenePath,
-        plotPath
+        voomPlotPath
       ], workDir);
     })
-    .then(function (commandResult) {
+    .then(Meteor.bindEnvironment(function (commandResult) {
       console.log("commandResult:", commandResult);
 
       function setMetadata (blob, otherMetadata) {
@@ -72,14 +79,68 @@ RunLimma.prototype.run = function () {
         })
       }
 
+      function addBlob(blobPath) {
+        var deferred = Q.defer();
 
+        var blob = Blobs.insert(blobPath);
+        Q(blob)
+          .delay(1000)
+          .then(deferred.resolve)
 
-      // // load in blobs
-      // var blob = Blobs.insert(item);
-      // var my_user_id = self.job.user_id
-      // Blobs.update({_id:blob._id}, {$set:{"metadata.user_id":my_user_id}});
-    })
-    .then(deferred.resolve)
+        return deferred.promise;
+      }
+
+      if (commandResult.exitCode === 0) {
+        // :D
+
+        var modelFit = Blobs.insert(modelFitPath);
+        var topGeneSignature = Blobs.insert(topGenePath);
+        var voomPlot = Blobs.insert(voomPlotPath);
+        setMetadata(modelFit);
+        setMetadata(topGeneSignature, {
+          "metadata.wrangler_file_type": "LimmaSignature"
+        });
+        setMetadata(voomPlot);
+
+        deferred.resolve({
+          result: "Success",
+          blobs: [
+            {
+              name: "Model fit",
+              blob_id: modelFit._id
+            },
+            {
+              name: "Top gene signature",
+              blob_id: topGeneSignature._id
+            },
+            {
+              name: "voom: Mean−variance trend",
+              blob_id: voomPlot._id
+            },
+          ],
+        });
+      } else {
+        // slurp up stderr, stdout
+        var stdout = Blobs.insert(commandResult.stdoutPath);
+        var stderr = Blobs.insert(commandResult.stderrPath);
+        setMetadata(stdout);
+        setMetadata(stderr);
+
+        deferred.resolve({
+          result: "Error code " + commandResult.exitCode,
+          blobs: [
+            {
+              name: "Command output (stdout)",
+              blob_id: stdout._id
+            },
+            {
+              name: "Command error output (stderr)",
+              blob_id: stderr._id
+            },
+          ],
+        });
+      }
+    }, deferred.reject))
     .catch(deferred.reject);
   return deferred.promise;
 };
@@ -92,7 +153,7 @@ JobClasses.RunLimma = RunLimma;
 //     "args" : {
 //         "contrastId" : "sWAmitXcb7rBgBE8c",
 //         topGeneCount: 5000,
-//         correction: "BH",
+//         correction_method: "BH",
 //     },
 //     "status" : "waiting",
 //     "timeout_length" : 6.048e+08,
