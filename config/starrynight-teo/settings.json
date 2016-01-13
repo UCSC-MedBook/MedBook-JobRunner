@@ -1,0 +1,4 @@
+{
+  "rscript": "/bin/sh",
+  "limma_path": "/Users/mokolodi1/work/medbook/job-runner/travis-tools/limma.sh"
+}

@@ -55,9 +55,10 @@ RunLimma.prototype.run = function () {
       })
     ])
     .then(function () {
+      var rscript = getSetting("rscript");
       var limmaPath = getSetting("limma_path");
 
-      return spawnCommand("Rscript", [
+      return spawnCommand(rscript, [
         limmaPath,
         expressionPath,
         phenoPath,
