@@ -2,6 +2,7 @@
   "rscript": "Rscript",
   "python": "python",
   "limma_path": "/data/MedBook/External-Tools/limma/limma_ng.R",
+  "apply_signature_path" : "/data/MedBook/External-Tools/signature/apply_signature.py",
   "viper_supervised_path": "/data/MedBook/UCSC_VIPER/bin/run-viper-supervised.R",
   "viper_unsupervised_path": "/data/MedBook/UCSC_VIPER/bin/run-viper-unsupervised.R",
   "viper_path": "/data/MedBook/UCSC_VIPER/bin/run-viper.R",
