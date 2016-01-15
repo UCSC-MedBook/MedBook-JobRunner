@@ -1,4 +1,13 @@
 {
-  "limma_path": "/data/MedBook/MedBook-Adapters/limma/limma_ng.R",
-  "viper_path": "/data/MedBook/MedBook-Adapters/UCSC_VIPER/bin/run-viper-supervised.R"
+  "rscript": "Rscript",
+  "python": "python",
+  "limma_path": "/data/MedBook/External-Tools/limma/limma_ng.R",
+  "viper_supervised_path": "/data/MedBook/UCSC_VIPER/bin/run-viper-supervised.R",
+  "viper_unsupervised_path": "/data/MedBook/UCSC_VIPER/bin/run-viper-unsupervised.R",
+  "viper_path": "/data/MedBook/UCSC_VIPER/bin/run-viper.R",
+  "marina_path": "/data/MedBook/UCSC_VIPER/bin/run-marina.R,
+  "gsea_path": "/data/MedBook/External-Tools/gsea/rgGSEA.py"
+  "boxplot_new_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//boxplot.new.R
+  "boxplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//boxplot.R
+  "violinplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//violinplot.R
 }
