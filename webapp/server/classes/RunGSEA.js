@@ -1,4 +1,4 @@
-function RunLimma (job_id) {
+function RunGSEA (job_id) {
   Job.call(this, job_id);
 
   // NOTE: top_gene_count can be a string or a number
@@ -32,58 +32,41 @@ function RunLimma (job_id) {
   }
 
   // This is the union of the samples in both lists in the contrast.
-  // NOTE: set in writePhenoFile
+  // NOTE: set in writeRankedGeneList
   this.sampleList = {};
 }
-RunLimma.prototype = Object.create(Job.prototype);
-RunLimma.prototype.constructor = RunLimma;
+RunGSEA.prototype = Object.create(Job.prototype);
+RunGSEA.prototype.constructor = RunGSEA;
 
 // Writes the phenotype file.
 // Also sets this.sampleList which keeps track of the samples that are in
 // either list1 or list2.
 // NOTE: no attempt to avoid the internal Node buffer has been made
 // here because this file shouldn't be long enough to need it.
-RunLimma.prototype.writePhenoFile = function (filePath) {
+RunGSEA.prototype.writeRankedGeneList = function (filePath) {
   var self = this;
 
-  var phenoWriteStream = fs.createWriteStream(filePath);
-  phenoWriteStream.write( "sample\tgroup\n");
-  _.each(this.contrast.list1, function(item) {
-    phenoWriteStream.write(item);
-    phenoWriteStream.write('\t');
-    phenoWriteStream.write(self.contrast.group1);
-    phenoWriteStream.write( '\n');
-    self.sampleList[item] = 1;
-  });
-  _.each(this.contrast.list2, function(item) {
-    phenoWriteStream.write(item);
-    phenoWriteStream.write('\t');
-    phenoWriteStream.write(self.contrast.group2);
-    phenoWriteStream.write( '\n');
+  var geneListWriteStream = fs.createWriteStream(filePath);
+  geneListWriteStream.write( "# gene\tscore\n");
+  _.each(this.signatures, function(item) {
+    geneListWriteStream.write(item.gene_label);
+    geneListWriteStream.write('\t');
+    geneListWriteStream.write(item.value);
+    geneListWriteStream.write( '\n');
     self.sampleList[item] = 1;
   });
 
-  var phenoDefer = Q.defer();
-  phenoWriteStream.end(phenoDefer.resolve);
-  return phenoDefer.promise;
+  var geneListDefer = Q.defer();
+  geneListWriteStream.end(geneListDefer.resolve);
+  return geneListDefer.promise;
 };
 
 // Writes the data in the expression file
 // Does some cool stuff with promises to buffer writing to the disk.
-RunLimma.prototype.writeExpressionFile = function (filePath) {
+RunGSEA.prototype.writeGmtFile = function (filePath) {
   var self = this;
 
   var writeStream = fs.createWriteStream(filePath);
-
-  // write the header line
-  writeStream.write('gene\t');
-  _.map(this.sampleList, function(value, key) {
-    if (value === 1) {
-      writeStream.write(key);
-      writeStream.write('\t');
-    }
-  });
-  writeStream.write('\n');
 
   // get data for the rest of the file
   var fields = { gene: 1 };
@@ -170,152 +153,58 @@ RunLimma.prototype.writeExpressionFile = function (filePath) {
   return expressionDeferred.promise;
 };
 
-RunLimma.prototype.run = function () {
+RunGSEA.prototype.run = function () {
   var self = this;
 
   // create paths for files on the disk
-  var workDir = ntemp.mkdirSync('RunLimma');
+  var workDir = ntemp.mkdirSync('RunGSEA');
   console.log('workDir: ', workDir);
 
   // TODO: generate the file names in the functions themselves, then
   // hand them off through a Q.all().spread
-  var phenoPath = path.join(workDir, 'pheno.tab');
-  var expressionPath = path.join(workDir, 'expdata.tab');
-  var sigPath = path.join(workDir, 'expdata.tab');
-  var topGenePath = path.join(workDir, 'expdata.tab');
-  var plotPath = path.join(workDir, 'expdata.tab');
-  
+  // ranked list of genes: col1: gene_label, col2: weight, col5: pvalue
+  var rankedGenesPath = path.join(workDir, 'rankedGenes.rnk');
+  //var gmtPath = path.join(workDir, 'geneSet.gmt');
+
 
   var outerDeferred = Q.defer();
-  self.writePhenoFile.call(self, phenoPath)
+  self.writeRankedGeneList.call(self, rankedGenesPath)
     .then(function () {
-      console.log("done writing phenofile");
-      return self.writeExpressionFile.call(self, expressionPath);
+      console.log("done writing ranked gene list");
+      return ;
     })
     .then(function () {
-      console.log("done writing expression file");
+      console.log("done writing gmt file");
 
       var settings = Meteor.settings;
       if (!settings) {
         throw "No Meteor.settings file available";
       }
-      if (!settings.limma_path) {
-        throw "No limma_path defined in Meteor.settings file";
+      if (!settings.GSEA_path) {
+        throw "No GSEA_path defined in Meteor.settings file";
+      }
+      if (!settings.gsea_jar_path) {
+        throw "No gsea_jar_path defined in Meteor.settings file";
+      }
+      if (!settings.gmt_path) {
+        throw "No gmt_path defined in Meteor.settings file";
       }
 
       // TODO: Robert needs to set the 300 to something
-      console.log("Meteor.settings.limma_path:", Meteor.settings.limma_path);
-      return spawnCommand(Meteor.settings.limma_path,
-        [phenoPath, expressionPath, 300, sigPath, topGenePath, plotPath],
+      console.log("Meteor.settings.GSEA_path:", Meteor.settings.GSEA_path);
+      return spawnCommand(Meteor.settings.GSEA_path,\
+        ["--input_tab", rankedGenesPath, "--builtin_gmt", gmt_path, "--gsea_jar", gsea_jar_path, \
+      "--adjpvalcol", "5" ,"--signcol", "2" "--idcol", "1",\
+      "--outhtml", "index.html",\
+      "--input_name", "contrast name",\
+      "--setMax", "500", "--setMin", "15", "--nPerm", "1000" ,"--plotTop", "20",\
+      "--output_dir", workDir, \
+      "--mode", "Max_probe",\
+      "--title", "contrast name" ],
         workDir);
     })
     .then(function () {
-      console.log("done with command");
-
-    //   var whendone = function(retcode, workDir, contrastId, contrastName, studyID, uid) {
-		// 	var idList = [];
-		// 	console.log('whendone work dir', workDir, 'return code', retcode, 'user id', uid);
-		// 	var buf = fs.readFileSync(path.join(workDir,'report.list'), {encoding:'utf8'}).split('\n');
-		// 	_.each(buf, function(item) {
-		// 		if (item) {
-		// 			var opts = {};
-		// 			ext = path.extname(item).toString();
-		// 			filename = path.basename(item).toString();
-		// 			if (ext == '.xgmml')
-		// 				opts.type = 'text/xgmml';
-		// 			else if (ext == '.sif')
-		// 				opts.type = 'text/network';
-		// 			else if (ext == '.tab')
-		// 				opts.type = 'text/tab-separated-values';
-		// 			//else if (filename == 'genes.tab')
-		// 			//	opts.type = ' Top Diff Genes'
-		// 			else
-		// 				opts.type = mime.lookup(item);
-    //
-		// 			var f = new FS.File();
-		// 			f.attachData(item, opts);
-    //
-		// 			var blob = Blobs.insert(f);
-		// 			console.log('name', f.name(),'blob id', blob._id, 'ext' , ext, 'type', opts.type, 'opts', opts, 'size', f.size());
-		// 			if (f.name() == 'genes.tab') {
-		// 				// Write signature object to MedBook
-		// 				console.log('write gene signature');
-		// 				var sig_lines = fs.readFileSync(item, {encoding:'utf8'}).split('\n');
-		// 				var count = 0;
-		// 				var sig_version = Signature.find({'contrast':contrastId}, {'version':1, sort: { version: -1 }}).fetch();
-		// 				var version = 0.9;
-		// 				var sigDict = {'AR' :{'weight':3.3}};
-		// 				try {
-		// 					version = Number(sig_version[0].version);
-		// 				}
-		// 				catch(error) {
-		// 					version = 0.9;
-		// 				}
-		// 				console.log('previous signature version', version);
-		// 				version = version + 0.1;
-		// 				_.each(sig_lines, function(sig_line) {
-		// 					var line = sig_line.split('\t');
-    //
-		// 					// logFC AveExpr t P.Value adj.P.Val B
-		// 					gene = line[0];
-		// 					fc = line[1];
-		// 					aveExp = line[2];
-		// 					tStat = line[3];
-		// 					pVal = line[4];
-		// 					adjPval = line[5];
-		// 					Bstat = line[6];
-		// 					if (gene) {
-		// 						try {
-		// 							sig = {};
-		// 							//sig['name'] = gene
-		// 							sig.weight = fc;
-		// 							sig.pval = pVal;
-		// 								sigDict[gene] = sig;
-		// 							count += 1;
-		// 							//if (count < 10) {
-		// 							//	console.log(gene,fc, sig)
-		// 								//}
-		// 						}
-		// 						catch (error) {
-		// 							console.log('cannot insert signature for gene', gene, error);
-		// 						}
-		// 					}
-		// 				});
-		// 				var sigID = new Meteor.Collection.ObjectID();
-		// 				var sigObj = Signature.insert({'_id':sigID, 'name':contrastName, 'studyID': studyID,
-		// 					'version':version,'contrast':contrastId, 'signature':  sigDict });
-		// 				console.log('signature insert returns', sigObj);
-		// 			}
-		// 			idList.push(blob._id);
-		// 		}
-		// 	}) ; /* each item in report.list */
-		// 	var resObj = Results.insert({'contrast': contrastId,'type':'diff_expression', 'name':'differential results for '+contrastName,'studyID':studyID,'return':retcode, 'blobs':idList});
-		// 	/* remove auto post
-		// 	var post = {
-		// 		title: "Results for contrast: "+contrastName,
-		// 		url: "/wb/results/"+resObj,
-		// 		body: "this is the results of limmma differential analysis run on 2/14/2015",
-		// 		medbookfiles: idList
-		// 	}
-		// 	console.log('user is ',uid)
-		// 	if (uid) {
-		// 		var user = Meteor.users.findOne({_id:uid})
-		// 		if (user) {
-		// 			console.log('user.services', user.services)
-		// 			var token = user.services.resume.loginTokens[0].hashedToken
-		// 			console.log('before post',post, token, 'username', user.username)
-		// 			HTTP.post("http://localhost:10001/medbookPost", {data:{post:post, token:token}})
-		// 			console.log('after post')
-		// 		}
-		// 	}*/
-		// 	//if (retcode == 0) {
-		// 	//	ntemp.cleanup(function(err, stats) {
-		// //			if (err)
-		// //				console.log('error deleting temp files', err)
-		// //			console.log('deleting temp files');
-		// //	  	});
-		// //	}
-		// };  /* end of whendon */
+      console.log("done with GSEA");
 
       outerDeferred.resolve();
     })
@@ -324,4 +213,4 @@ RunLimma.prototype.run = function () {
   return outerDeferred.promise;
 };
 
-JobClasses.RunLimma = RunLimma;
+JobClasses.RunGSEA = RunGSEA;
