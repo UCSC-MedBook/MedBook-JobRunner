@@ -34,7 +34,7 @@ RunLimma.prototype.run = function () {
   var phenoPath = path.join(workDir, "pheno.tab");
   var contrast = Contrasts.findOne({
     contrast_label: this.job.args.contrast_label,
-    version: this.job.args.contrast_version,
+    contrast_version: this.job.args.contrast_version,
   });
   var expressionSamples = _.flatten([contrast.a_samples, contrast.b_samples]);
 
@@ -99,7 +99,12 @@ RunLimma.prototype.run = function () {
         var voomPlot = Blobs.insert(voomPlotPath);
         setMetadata(modelFit);
         setMetadata(topGeneSignature, {
-          "metadata.wrangler_file_type": "LimmaSignature"
+          "metadata.wrangler_file_options": {
+            file_type: "LimmaSignature",
+            update_or_create: "create",
+            algorithm: "limma",
+            features_type: "genes",
+          },
         });
         setMetadata(voomPlot);
 

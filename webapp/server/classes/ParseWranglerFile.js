@@ -85,6 +85,10 @@ ParseWranglerFile.prototype.run = function () {
         setFileOptions({ normalization: "quantile_counts" });
       }
 
+      if (self.blob.metadata && self.blob.metadata.wrangler_file_options) {
+        setFileOptions(self.blob.metadata.wrangler_file_options);
+      }
+
       // we can now show the options to the user
       WranglerFiles.update(self.wranglerFile._id, {
         $set: { parsed_options_once_already: true }
