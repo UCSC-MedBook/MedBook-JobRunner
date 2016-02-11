@@ -72,33 +72,14 @@ RunLimma.prototype.run = function () {
     .then(Meteor.bindEnvironment(function (commandResult) {
       console.log("commandResult:", commandResult);
 
-      function setMetadata (blob, otherMetadata) {
-        Blobs.update(blob._id, {
-          $set: _.extend({
-            "metadata.user_id": self.job.user_id,
-          }, otherMetadata)
-        })
-      }
-
-      function addBlob(blobPath) {
-        var deferred = Q.defer();
-
-        var blob = Blobs.insert(blobPath);
-        Q(blob)
-          .delay(1000)
-          .then(deferred.resolve)
-
-        return deferred.promise;
-      }
-
       if (commandResult.exitCode === 0) {
         // :D
 
         var modelFit = Blobs.insert(modelFitPath);
         var topGeneSignature = Blobs.insert(topGenePath);
         var voomPlot = Blobs.insert(voomPlotPath);
-        setMetadata(modelFit);
-        setMetadata(topGeneSignature, {
+        setBlobMetadata(modelFit, self.job.user_id);
+        setBlobMetadata(topGeneSignature, self.job.user_id, {
           "metadata.wrangler_file_options": {
             file_type: "LimmaSignature",
             update_or_create: "create",
@@ -106,7 +87,7 @@ RunLimma.prototype.run = function () {
             features_type: "genes",
           },
         });
-        setMetadata(voomPlot);
+        setBlobMetadata(voomPlot, self.job.user_id);
 
         deferred.resolve({
           result: "Success",
@@ -126,25 +107,7 @@ RunLimma.prototype.run = function () {
           ],
         });
       } else {
-        // slurp up stderr, stdout
-        var stdout = Blobs.insert(commandResult.stdoutPath);
-        var stderr = Blobs.insert(commandResult.stderrPath);
-        setMetadata(stdout);
-        setMetadata(stderr);
-
-        deferred.resolve({
-          result: "Error code " + commandResult.exitCode,
-          blobs: [
-            {
-              name: "Command output (stdout)",
-              blob_id: stdout._id
-            },
-            {
-              name: "Command error output (stderr)",
-              blob_id: stderr._id
-            },
-          ],
-        });
+        spawnedCommandFailedResolve.call(self, commandResult, deferred);
       }
     }, deferred.reject))
     .catch(deferred.reject);
