@@ -1,0 +1,9 @@
+[[[[[ ~/core-genomic/MedBook-JobRunner/webapp ]]]]]
+
+=> Started proxy.
+=> Meteor 1.2.1 is available. Update this project with 'meteor update'.
+[34mI20160216-13:06:32.478(-8)? [39mMeteor._wrapAsync has been renamed to Meteor.wrapAsync
+=> Started your app.
+
+=> App running at: http://localhost:3003/
+[34mI20160216-13:06:32.694(-8)? [39mServer is starting!
