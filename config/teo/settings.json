@@ -1,0 +1,7 @@
+{
+  "sh": "/bin/sh",
+  "rscript": "Rscript",
+  "limma_path": "/Users/mokolodi1/work/medbook/external-tools/limma/limma_ng.R",
+  "up_down_genes": "/Users/mokolodi1/work/medbook/external-tools/UpDownGenes/up_down_genes.sh",
+  "calculate_outlier_genes": "/Users/mokolodi1/work/medbook/external-tools/UpDownGenes/calculate_outlier_genes.R"
+}

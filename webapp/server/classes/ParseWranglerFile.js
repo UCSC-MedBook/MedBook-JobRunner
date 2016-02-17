@@ -57,11 +57,11 @@ ParseWranglerFile.prototype.run = function () {
       if (!options.file_type) {
         if (extensionEquals(".vcf")) {
           setFileOptions({ file_type: "MutationVCF" });
-        }
-        if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
+        } else if (blobName.match(/\.rsem\.genes\.[a-z_]*\.tab/g)) {
           setFileOptions({ file_type: "RectangularGeneExpression" });
-        }
-        if (extensionEquals(".xls") || extensionEquals("xlsx")) {
+        } else if (blobName.match(/\.rsem\.isoform\.[a-z_]*\.tab/g)) {
+          setFileOptions({ file_type: "RectangularIsoformExpression" });
+        } else if (extensionEquals(".xls") || extensionEquals("xlsx")) {
           setFileOptions({ file_type: "BasicClinical" });
         }
       }
@@ -83,6 +83,10 @@ ParseWranglerFile.prototype.run = function () {
       // force certain options
       if (options.file_type === "TCGAGeneExpression") {
         setFileOptions({ normalization: "quantile_counts" });
+      }
+
+      if (self.blob.metadata && self.blob.metadata.wrangler_file_options) {
+        setFileOptions(self.blob.metadata.wrangler_file_options);
       }
 
       // we can now show the options to the user

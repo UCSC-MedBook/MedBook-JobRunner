@@ -20,3 +20,5 @@ twbs:bootstrap
 patte:mime-npm
 less
 email
+mokolodi1:helpers
+medbook:adapters

@@ -1,0 +1,4 @@
+{
+  "rscript": "/bin/sh",
+  "limma_path": "/home/travis/build/UCSC-MedBook/MedBook-Workbench/MedBook-JobRunner/travis-tools/limma.sh"
+}

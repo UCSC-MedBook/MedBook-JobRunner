@@ -34,6 +34,7 @@ FinishWranglerSubmission.prototype.run = function () {
   // make sure each WranglerFile has { written_to_database: true }
   var notWrittenCursor = WranglerFiles.find({
     submission_id: submission_id,
+    submission_type: { $ne: "metadata" },
     written_to_database: {$ne: true},
   });
   if (notWrittenCursor.count() > 0) {
