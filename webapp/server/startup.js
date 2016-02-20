@@ -129,7 +129,7 @@ function runNextJob () {
       errorWarningUser = e;
     }
 
-    var error_description = "Reason for rejection: " + reason + ".";
+    var error_description = reason + ""; // convert to string
     console.log("job: rejected - ", reason);
     if (reason.stack) {
       console.log("stack trace:", reason.stack);
