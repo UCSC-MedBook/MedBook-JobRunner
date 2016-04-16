@@ -8,8 +8,10 @@ meteor-platform
 percolate:synced-cron
 aldeed:simple-schema
 aldeed:collection2
-medbook:primary-collections
-medbook:wrangler-collections
+medbook:primary-collections@0.0.19
+medbook:referential-integrity@0.0.2
+medbook:wrangler-collections@0.0.24
+
 meteorhacks:npm
 
 npm-container
@@ -20,6 +22,6 @@ twbs:bootstrap
 patte:mime-npm
 less
 email
-mokolodi1:helpers
+mokolodi1:helpers@0.0.7
 medbook:adapters
 medbook:namespace
