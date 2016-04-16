@@ -60,8 +60,12 @@ SubmitWranglerSubmission.prototype.run = function () {
   }
 
   // make sure we have only one type of submission type
+  var notMetadataQuery = {
+    submission_id: submission_id,
+    submission_type: { $ne: "metadata" },
+  };
   var distinctSubmissionTypes = WranglerFiles.aggregate([
-        {$match: {submission_id: submission_id}},
+        { $match: notMetadataQuery },
         {$project: {submission_type: 1}},
         {
           $group: {
@@ -85,8 +89,7 @@ SubmitWranglerSubmission.prototype.run = function () {
   // add a bunch of jobs to write the files to the database
   var self = this;
   var writingJobIds = [];
-  WranglerFiles.find({submission_id: submission_id})
-      .forEach(function (wranglerFile) {
+  WranglerFiles.find(notMetadataQuery).forEach(function (wranglerFile) {
     var newJobId = Jobs.insert({
       name: "SubmitWranglerFile",
       user_id: self.job.user_id,

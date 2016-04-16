@@ -10,4 +10,4 @@ export MONGO_URL=mongodb://localhost:27017/MedBook
 export ROOT_URL=https://su2c-dev.ucsc.edu/JobRunner/
 export ROOT_URL_PATH_PREFIX=JobRunner
 echo $MONGO_URL $ROOT_URL $ROOT_URL_PATH_PREFIX
-meteor  --port $PORT --settings ../rb_settings.json >& "/data/MedBook/logs/log.job.runner.$$" &
+meteor  --port $PORT --settings settings.json >& "/data/MedBook/logs/log.job.runner.$$" &

@@ -1,4 +1,5 @@
 #! /usr/bin/env bash
 
-cd /app-dev
+cd /app-dev/webapp
 meteor
+
