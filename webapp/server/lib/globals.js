@@ -36,12 +36,24 @@ spawnCommand = function (command, args, cwd) {
     return Q.reject(new Error("All arguments must be a boolean, string or number"));
   }
 
+  function hashCode(str) {
+    var hash = 0;
+    if (str.length == 0) return hash;
+    for (i = 0; i < str.length; i++) {
+      char = str.charCodeAt(i);
+      hash = ((hash<<5)-hash)+char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  }
+  var hashString = hashCode(command.toString() + args.toString());
+
   var deferred = Q.defer();
 
   // TODO: what happens to stdout/stderr?
-  var stdoutPath = path.join(cwd, "./stdout.log");
+  var stdoutPath = path.join(cwd, "./" + hashString + "_stdout.log");
   var stdout = fs.openSync(stdoutPath, "a");
-  var stderrPath = path.join(cwd, "./stderr.log");
+  var stderrPath = path.join(cwd, "./" + hashString + "_stderr.log");
   var stderr = fs.openSync(stderrPath, "a");
   var proc = spawn(command, args, {
     cwd: cwd,
@@ -49,6 +61,8 @@ spawnCommand = function (command, args, cwd) {
   });
 
   proc.on("error", function (error) {
+    console.log("stdoutPath:", stdoutPath);
+    console.log("stderrPath:", stderrPath);
     console.log("job got on error", error);
     deferred.reject(new Error(command + " " + args.join(" ") + " in " +
         cwd + " encountered error " + error.message));
