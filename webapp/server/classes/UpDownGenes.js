@@ -65,14 +65,15 @@ UpDownGenes.prototype.run = function () {
       downPath = path.join(workDir, "down_outlier_genes")
 
       // insert blobs into mongo
-      var upBlob = Blobs.insert(upPath);
-      var downBlob = Blobs.insert(downPath);
+      var output = {
+        up_blob_id: Blobs.insert(upPath)._id,
+        down_blob_id: Blobs.insert(downPath)._id,
+      };
 
       // parse strings
-      var output = {};
       _.each([
-        { name: "upGenes", fileString: fs.readFileSync(upPath, "utf8") },
-        { name: "downGenes", fileString: fs.readFileSync(downPath, "utf8") },
+        { name: "up_genes", fileString: fs.readFileSync(upPath, "utf8") },
+        { name: "down_genes", fileString: fs.readFileSync(downPath, "utf8") },
       ], function (outlier) {
         var lineArray = outlier.fileString.split("\n");
         var filteredLines = _.filter(lineArray, function (line) {
@@ -81,7 +82,6 @@ UpDownGenes.prototype.run = function () {
 
         // loop for each line
         output[outlier.name] = _.map(filteredLines, function (line) {
-          console.log("line:", line);
           var tabSplit = line.split(" ");
           return {
             gene_label: tabSplit[0],
