@@ -62,7 +62,7 @@ SubmitWranglerSubmission.prototype.run = function () {
   // make sure we have only one type of submission type
   var notMetadataQuery = {
     submission_id: submission_id,
-    submission_type: { $ne: "metadata" },
+    // submission_type: { $ne: "metadata" }, // NOTE: was useful, now removed
   };
   var distinctSubmissionTypes = WranglerFiles.aggregate([
         { $match: notMetadataQuery },
