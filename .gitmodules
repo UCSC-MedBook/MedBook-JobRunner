@@ -1,0 +1,12 @@
+[submodule "webapp/packages/wrangler-collections"]
+	path = webapp/packages/wrangler-collections
+	url = https://github.com/UCSC-MedBook/wrangler-collections
+[submodule "webapp/packages/primary-collections"]
+	path = webapp/packages/primary-collections
+	url = https://github.com/UCSC-MedBook/primary-collections
+[submodule "webapp/packages/referential-integrity"]
+	path = webapp/packages/referential-integrity
+	url = https://github.com/UCSC-MedBook/referential-integrity
+[submodule "webapp/packages/adapters"]
+	path = webapp/packages/adapters
+	url = https://github.com/UCSC-MedBook/adapters
