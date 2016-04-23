@@ -10,3 +10,6 @@
 [submodule "webapp/packages/adapters"]
 	path = webapp/packages/adapters
 	url = https://github.com/UCSC-MedBook/adapters
+[submodule "external-tools"]
+	path = external-tools
+	url = https://github.com/UCSC-MedBook/external-tools
