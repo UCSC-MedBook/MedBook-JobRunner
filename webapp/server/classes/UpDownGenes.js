@@ -40,7 +40,7 @@ UpDownGenes.prototype.run = function () {
       return spawnCommand(rscript, [
         outlierGenesPath,
         sampleGroupPath,
-        1.5
+        self.job.args.iqr_multiplier,
       ], workDir);
     })
     .then(function (commandResult) {
