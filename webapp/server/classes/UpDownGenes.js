@@ -9,28 +9,26 @@ UpDownGenes.prototype.run = function () {
   var workDir = ntemp.mkdirSync("UpDownGenes");
   console.log("workDir: ", workDir);
 
-  // prepare to write files
-  var cohortExpressionPath = path.join(workDir, "expdata.tab");
-  // as specified by the up_down_genes script that uses this file
-  var testSamplePath = path.join(workDir, "test_sample_gene_expression.txt");
-
-  // output files
-  var expressionUpPath = path.join(workDir, "expression_up_outliers.tsv");
-  var expressionDownPath = path.join(workDir, "expression_down_outliers.tsv");
-
   var deferred = Q.defer();
   var self = this;
+
+  var exportScript = getSetting("expression3_export");
   Q.all([
-      // write the cohort expression file
-      new Export.GeneExpressionMatrix().run(cohortExpressionPath, {
-        samples: self.job.args.reference_samples
-      }),
-      // write the single sample expression file
-      new Export.GeneExpressionMatrix().run(testSamplePath, {
-        samples: self.job.args.reference_samples
-      }),
+      // single sample data
+      spawnCommand(exportScript, [
+        "--study_label", self.job.args.study_label,
+        "--sample_label", self.job.args.sample_label,
+      ], workDir),
+      // sample group data
+      spawnCommand(exportScript, [
+        "--sample_group_id", self.job.args.sample_group_id,
+      ], workDir),
     ])
-    .then(function () {
+    .then(function (spawnResults) {
+      // save this result for use in a future chained promise
+      self.testSamplePath = spawnResults[0].stdoutPath;
+      var sampleGroupPath = spawnResults[1].stdoutPath;
+
       // // pulled from upDownGenes.sh
       // # arg 1: matrix file
       // # arg 2: default 1.5
@@ -41,53 +39,59 @@ UpDownGenes.prototype.run = function () {
 
       return spawnCommand(rscript, [
         outlierGenesPath,
-        cohortExpressionPath,
-        1.5
+        sampleGroupPath,
+        self.job.args.iqr_multiplier,
       ], workDir);
     })
-    .then(Meteor.bindEnvironment(function (commandResult) {
-      console.log("commandResult:", commandResult);
-
+    .then(function (commandResult) {
       if (commandResult.exitCode !== 0) {
-        spawnedCommandFailedResolve.call(self, commandResult, deferred);
-        return;
+        throw new Error("Error code running up/down genes Rscript");
       }
 
       var sh = getSetting("sh");
-      var upDownGenes = getSetting("up_down_genes");
+      var outlierAnalysis = getSetting("outlier_analysis");
 
-      // don't have to return anything because there's no then
-      spawnCommand(sh, [
-        upDownGenes,
-      ], workDir)
-        .then(Meteor.bindEnvironment(function (commandResult) {
-          if (commandResult.exitCode !== 0) {
-            spawnedCommandFailedResolve.call(self, commandResult, deferred);
-            return;
-          }
+      return spawnCommand(sh, [
+        outlierAnalysis,
+        self.testSamplePath
+      ], workDir);
+    })
+    .then(Meteor.bindEnvironment(function (commandResult) {
+      console.log("done with single sample analysis");
+      console.log("commandResult:", commandResult);
 
-          // done!
+      // calculate the paths for the output files
+      upPath = path.join(workDir, "up_outlier_genes")
+      downPath = path.join(workDir, "down_outlier_genes")
 
-          var expressionUp = Blobs.insert(expressionUpPath);
-          var expressionDown = Blobs.insert(expressionDownPath);
-          setBlobMetadata(expressionUp, self.job.user_id);
-          setBlobMetadata(expressionDown, self.job.user_id);
+      // insert blobs into mongo
+      var output = {
+        up_blob_id: Blobs.insert(upPath)._id,
+        down_blob_id: Blobs.insert(downPath)._id,
+      };
 
-          deferred.resolve({
-            result: "Success",
-            blobs: [
-              {
-                name: "Expression up outliers",
-                blob_id: expressionUp._id
-              },
-              {
-                name: "Expression down outliers",
-                blob_id: expressionDown._id
-              },
-            ],
-          });
-        }, deferred.reject))
-        .catch(deferred.reject);
+      // parse strings
+      _.each([
+        { name: "up_genes", fileString: fs.readFileSync(upPath, "utf8") },
+        { name: "down_genes", fileString: fs.readFileSync(downPath, "utf8") },
+      ], function (outlier) {
+        var lineArray = outlier.fileString.split("\n");
+        var filteredLines = _.filter(lineArray, function (line) {
+          return line !== "";
+        });
+
+        // loop for each line
+        output[outlier.name] = _.map(filteredLines, function (line) {
+          var tabSplit = line.split(" ");
+          return {
+            gene_label: tabSplit[0],
+            background_median: parseFloat(tabSplit[1]),
+            sample_value: parseFloat(tabSplit[2]),
+          };
+        });
+      });
+
+      deferred.resolve(output);
     }, deferred.reject))
     // NOTE: Meteor.bindEnvironment returns immidiately, meaning we can't
     // quite use the nice promise syntax of chainging .thens
