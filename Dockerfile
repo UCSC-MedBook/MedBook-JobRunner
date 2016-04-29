@@ -1,6 +1,8 @@
 FROM medbook/meteor-base:v0.7
 MAINTAINER Mike Risse
 
+# Start Rscript install (pulled from https://github.com/rocker-org/rocker/blob/master/r-base/Dockerfile)
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ed \
@@ -43,3 +45,5 @@ RUN apt-get update \
     && install.r docopt \
     && rm -rf /tmp/downloaded_packages/ /tmp/*.rds \
     && rm -rf /var/lib/apt/lists/*
+    
+# End Rscript install
