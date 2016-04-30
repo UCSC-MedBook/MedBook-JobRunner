@@ -45,5 +45,19 @@ RUN apt-get update \
     && install.r docopt \
     && rm -rf /tmp/downloaded_packages/ /tmp/*.rds \
     && rm -rf /var/lib/apt/lists/*
-    
+
 # End Rscript install
+
+# Install Limma R package requirements
+RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' \
+    -e 'biocLite("edgeR")'
+
+# https://github.com/dockerfile/java/blob/master/oracle-java7/Dockerfile
+# Install Java.
+RUN \
+  echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
+  add-apt-repository -y ppa:webupd8team/java && \
+  apt-get update && \
+  apt-get install -y oracle-java7-installer && \
+  rm -rf /var/lib/apt/lists/* && \
+  rm -rf /var/cache/oracle-jdk7-installer

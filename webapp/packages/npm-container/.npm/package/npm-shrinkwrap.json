@@ -6,6 +6,143 @@
     "byline": {
       "version": "4.2.1"
     },
+    "docker-run": {
+      "version": "2.4.0",
+      "dependencies": {
+        "debug": {
+          "version": "1.0.4",
+          "dependencies": {
+            "ms": {
+              "version": "0.6.2"
+            }
+          }
+        },
+        "docker-raw-stream": {
+          "version": "1.3.1",
+          "dependencies": {
+            "through2": {
+              "version": "0.5.1",
+              "dependencies": {
+                "readable-stream": {
+                  "version": "1.0.34",
+                  "dependencies": {
+                    "core-util-is": {
+                      "version": "1.0.2"
+                    },
+                    "isarray": {
+                      "version": "0.0.1"
+                    },
+                    "string_decoder": {
+                      "version": "0.10.31"
+                    },
+                    "inherits": {
+                      "version": "2.0.1"
+                    }
+                  }
+                },
+                "xtend": {
+                  "version": "3.0.0"
+                }
+              }
+            }
+          }
+        },
+        "docker-remote-api": {
+          "version": "4.4.1",
+          "dependencies": {
+            "concat-stream": {
+              "version": "1.5.1",
+              "dependencies": {
+                "inherits": {
+                  "version": "2.0.1"
+                },
+                "typedarray": {
+                  "version": "0.0.6"
+                },
+                "readable-stream": {
+                  "version": "2.0.6",
+                  "dependencies": {
+                    "core-util-is": {
+                      "version": "1.0.2"
+                    },
+                    "isarray": {
+                      "version": "1.0.0"
+                    },
+                    "process-nextick-args": {
+                      "version": "1.0.6"
+                    },
+                    "string_decoder": {
+                      "version": "0.10.31"
+                    },
+                    "util-deprecate": {
+                      "version": "1.0.2"
+                    }
+                  }
+                }
+              }
+            },
+            "docker-host": {
+              "version": "3.1.0"
+            },
+            "once": {
+              "version": "1.3.3",
+              "dependencies": {
+                "wrappy": {
+                  "version": "1.0.1"
+                }
+              }
+            },
+            "xtend": {
+              "version": "3.0.0"
+            }
+          }
+        },
+        "pump": {
+          "version": "1.0.1",
+          "dependencies": {
+            "end-of-stream": {
+              "version": "1.1.0"
+            },
+            "once": {
+              "version": "1.3.3",
+              "dependencies": {
+                "wrappy": {
+                  "version": "1.0.1"
+                }
+              }
+            }
+          }
+        },
+        "through2": {
+          "version": "0.6.5",
+          "dependencies": {
+            "readable-stream": {
+              "version": "1.0.34",
+              "dependencies": {
+                "core-util-is": {
+                  "version": "1.0.2"
+                },
+                "isarray": {
+                  "version": "0.0.1"
+                },
+                "string_decoder": {
+                  "version": "0.10.31"
+                },
+                "inherits": {
+                  "version": "2.0.1"
+                }
+              }
+            },
+            "xtend": {
+              "version": "4.0.1"
+            }
+          }
+        },
+        "minimist": {
+          "version": "1.2.0"
+        }
+      }
+    },
     "mime": {
       "version": "1.2.11"
     },

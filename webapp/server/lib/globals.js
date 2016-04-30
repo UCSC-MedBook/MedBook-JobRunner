@@ -66,6 +66,7 @@ spawnCommand = function (command, args, cwd) {
     console.log("job got on error", error);
     deferred.reject(new Error(command + " " + args.join(" ") + " in " +
         cwd + " encountered error " + error.message));
+    console.log("rejected");
   });
 
   proc.on("exit", function(exitCode) {

@@ -5,26 +5,6 @@ RunLimma.prototype = Object.create(Job.prototype);
 RunLimma.prototype.constructor = RunLimma;
 
 RunLimma.prototype.run = function () {
-  check(this.job.args, new SimpleSchema({
-    topGeneCount: {
-      type: Number,
-      min: 1,
-    },
-    contrast_label: {
-      type: String,
-    },
-    contrast_version: {
-      type: Number,
-    },
-    correction_method: {
-      type: String,
-      allowedValues: [
-        "BH",
-        "none"
-      ]
-    },
-  }));
-
   // create paths for files on the disk
   var workDir = ntemp.mkdirSync("RunLimma");
   console.log("workDir: ", workDir);
@@ -32,10 +12,7 @@ RunLimma.prototype.run = function () {
   // prepare to write files
   var expressionPath = path.join(workDir, "expdata.tab");
   var phenoPath = path.join(workDir, "pheno.tab");
-  var contrast = Contrasts.findOne({
-    contrast_label: this.job.args.contrast_label,
-    contrast_version: this.job.args.contrast_version,
-  });
+
   var expressionSamples = _.flatten([contrast.a_samples, contrast.b_samples]);
 
   // output files
@@ -55,15 +32,14 @@ RunLimma.prototype.run = function () {
       })
     ])
     .then(function () {
-      var rscript = getSetting("rscript");
       var limmaPath = getSetting("limma_path");
 
-      return spawnCommand(rscript, [
+      return spawnCommand("Rscript", [
         limmaPath,
         expressionPath,
         phenoPath,
         self.job.args.topGeneCount,
-        self.job.args.correction_method,
+        "BH", // "BH" or "none"
         modelFitPath,
         topGenePath,
         voomPlotPath

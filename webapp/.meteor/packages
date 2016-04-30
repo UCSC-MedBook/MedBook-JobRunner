@@ -15,7 +15,7 @@ medbook:wrangler-collections@0.0.24
 meteorhacks:npm
 
 npm-container
-medbook:parse-vcf
+#medbook:parse-vcf
 meteorhacks:aggregate
 
 twbs:bootstrap
