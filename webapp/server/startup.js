@@ -173,12 +173,20 @@ function runNextJob () {
 Meteor.startup(function () {
   console.log("Server is starting!");
 
+  // set errors for jobs that got killed
   Jobs.update({
     status: "running"
   }, {
     $set: {
       status: "error",
       error_description: "Server restarted"
+    }
+  }, {multi: true});
+
+  // make sure the Studies collection is okay and we can still wrangle things
+  Studies.update({}, {
+    $set: {
+      gene_expression_wrangling: false
     }
   }, {multi: true});
 
