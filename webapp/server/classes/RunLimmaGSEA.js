@@ -53,6 +53,7 @@ RunLimmaGSEA.prototype.run = function () {
   var modelFitPath = path.join(workDir, "model_fit.tab");
   var topGenePath = path.join(workDir, "Topgene.rnk");
   var voomPlotPath = path.join(workDir, "mds.pdf");
+  var gseaOutput = path.join(workDir, "gseaOutput");
 
   Q.all([
       // write mongo data to files
@@ -98,7 +99,6 @@ RunLimmaGSEA.prototype.run = function () {
       ], workDir);
     })
     .then(function (limmaResult) {
-      console.log("done running Limma", limmaResult);
       if (limmaResult.exitCode !== 0) {
         throw "Problem running limma";
       }
@@ -119,29 +119,46 @@ RunLimmaGSEA.prototype.run = function () {
         "--setMin", "15",
         "--nPerm", "1000",
         "--plotTop", "20",
-        "--output_dir", workDir,
+        "--output_dir", gseaOutput,
         // "--mode", "Max_probe",
         // "--title", contrastName
       ], workDir);
     })
-    // can't add another .then: Meteor.bindEnvironment returns immidiately
-    .then(Meteor.bindEnvironment(function (result) {
-      console.log("done running GSEA:", result);
-
+    .then(function (result) {
       if (result.exitCode !== 0) {
         throw "Problem running GSEA";
       }
 
+      // "F" is to put a "/" at the end of every folder name
+      return spawnCommand("ls", [ "-1F", gseaOutput ], workDir);
+    })
+    // can't add another .then: Meteor.bindEnvironment returns immidiately
+    .then(Meteor.bindEnvironment(function (result) {
+      var outputString = fs.readFileSync(result.stdoutPath, "utf8");
+      var outputFileNames = _.filter(outputString.split("\n"),
+          function (fileName) {
+        return !!fileName && fileName.slice(-1) !== "/";
+      });
+
+      _.each(outputFileNames, function(fileName) {
+        var blob = Blobs.insert(path.join(gseaOutput, fileName));
+
+        Blobs.update({ _id: blob._id }, {
+          $set: {
+            "metadata.job_id": self.job._id,
+            "metadata.tool_label": "gsea",
+            "metadata.file_path": fileName,
+          }
+        });
+      });
+      console.log("inserted all blobs");
+
       // remove the temporary sample group (also do this if it fails)
+      // Do this down here because I don't feel like wrapping another .then
+      // in a callback.
       SampleGroups.remove(comboSampleGroupId);
 
-      // insert the blob and end the job. whew.
-      var outputString = fs.readFileSync(result.stdoutPath, "utf8");
-      var outputFileZip = outputString.slice(7, -1) + ".rpt.zip";
-
-      deferred.resolve({
-        gsea_report_zipped_blob_id: Blobs.insert(outputFileZip)._id,
-      });
+      deferred.resolve({});
     }, deferred.reject))
     .catch(Meteor.bindEnvironment(function (reason) {
       // always remove the created sample group even if it fails
