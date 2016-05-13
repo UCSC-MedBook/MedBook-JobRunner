@@ -47,11 +47,8 @@ UpDownGenes.prototype.run = function () {
         throw new Error("Error code running up/down genes Rscript");
       }
 
-      var sh = getSetting("sh");
-      var outlierAnalysis = getSetting("outlier_analysis");
-
-      return spawnCommand(sh, [
-        outlierAnalysis,
+      return spawnCommand("/bin/sh", [
+        getSetting("outlier_analysis"),
         self.testSamplePath
       ], workDir);
     })
