@@ -14,5 +14,14 @@ RUN apt-get update \
 RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' \
     -e 'biocLite("edgeR")'
 
+# Install python requirements
+RUN apt-get install -y --force-yes --no-install-recommends \
+    python-pip \
+    python-dev \
+    build-essential
+RUN easy_install pip
+RUN pip install --upgrade virtualenv
+RUN pip install pymongo
+
 # https://github.com/dockerfile/java/blob/master/oracle-java7/Dockerfile
 # Install Java: TODO
