@@ -34,10 +34,9 @@ UpDownGenes.prototype.run = function () {
       // # arg 2: default 1.5
       // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
 
-      var rscript = getSetting("rscript");
       var outlierGenesPath = getSetting("calculate_outlier_genes");
 
-      return spawnCommand(rscript, [
+      return spawnCommand("Rscript", [
         outlierGenesPath,
         sampleGroupPath,
         self.job.args.iqr_multiplier,

@@ -1,0 +1,4 @@
+{
+  "outlier_analysis": "/home/ubuntu/medbook/MedBook-JobRunner/external-tools/OutlierAnalysis/outlier-analysis.sh",
+  "calculate_outlier_genes": "/home/ubuntu/medbook/MedBook-JobRunner/external-tools/OutlierAnalysis/calculate_outlier_genes.R",
+}
