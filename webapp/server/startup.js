@@ -183,8 +183,8 @@ Meteor.startup(function () {
     }
   }, {multi: true});
 
-  // make sure the Studies collection is okay and we can still wrangle things
-  Studies.update({}, {
+  // make sure the DataSets collection is okay and we can still wrangle things
+  DataSets.update({}, {
     $set: {
       gene_expression_wrangling: false
     }

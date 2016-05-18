@@ -15,21 +15,20 @@ RunLimmaGSEA.prototype.run = function () {
   var groupA = SampleGroups.findOne(this.job.args.sample_group_a_id);
   var groupB = SampleGroups.findOne(this.job.args.sample_group_b_id);
 
-  // combine samples of same study into single array
-  var studyHash = {};
-  _.each(groupA.studies.concat(groupB.studies), function (study) {
-    console.log("study:", study);
-    var oldSamples = studyHash[study.study_label];
+  // combine samples of same data set into single array
+  var dataSetHash = {};
+  _.each(groupA.data_sets.concat(groupB.data_sets), function (dataSet) {
+    var oldSamples = dataSetHash[dataSet.data_set_id];
     if (!oldSamples) {
       oldSamples = [];
     }
 
-    studyHash[study.study_label] = oldSamples.concat(study.sample_labels);
+    dataSetHash[dataSet.data_set_id] = oldSamples.concat(dataSet.sample_labels);
   });
-  var comboSampleGroupStudies = _.map(studyHash,
-      function (sample_labels, study_label) {
+  var comboSampleGroupDataSets = _.map(dataSetHash,
+      function (sample_labels, data_set_id) {
     return {
-      study_label: study_label,
+      data_set_id: data_set_id,
       sample_labels: sample_labels,
     };
   });
@@ -38,7 +37,7 @@ RunLimmaGSEA.prototype.run = function () {
     name: "temp",
     version: 1,
     collaborations: [], // invisible
-    studies: comboSampleGroupStudies,
+    data_sets: comboSampleGroupDataSets,
   });
 
   // star the promise chain: woohoo!

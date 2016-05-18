@@ -16,7 +16,7 @@ UpDownGenes.prototype.run = function () {
   Q.all([
       // single sample data
       spawnCommand(exportScript, [
-        "--study_label", self.job.args.study_label,
+        "--data_set_id", self.job.args.data_set_id,
         "--sample_label", self.job.args.sample_label,
       ], workDir),
       // sample group data
