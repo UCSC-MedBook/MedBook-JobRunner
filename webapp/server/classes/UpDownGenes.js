@@ -25,6 +25,15 @@ UpDownGenes.prototype.run = function () {
       ], workDir),
     ])
     .then(function (spawnResults) {
+      console.log("spawnResults:", spawnResults);
+
+      // check if there was a problem
+      var uniqueExitCodes = _.uniq(_.pluck(spawnResults, "exitCode"));
+      console.log("uniqueExitCodes:", uniqueExitCodes);
+      if (uniqueExitCodes.length !== 1 || uniqueExitCodes[0] !== 0) {
+        throw new Error("Writing files failed (exit code not 0)");
+      }
+
       // save this result for use in a future chained promise
       self.testSamplePath = spawnResults[0].stdoutPath;
       var sampleGroupPath = spawnResults[1].stdoutPath;
