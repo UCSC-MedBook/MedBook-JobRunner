@@ -58,7 +58,7 @@ RunLimmaGSEA.prototype.run = function () {
       // write mongo data to files
 
       // expression data to a file for use in Limma
-      spawnCommand(getSetting("expression3_export"), [
+      spawnCommand(getSetting("gene_expression_export"), [
         "--sample_group_id", comboSampleGroupId,
       ], workDir),
       // phenotype file for Limma
