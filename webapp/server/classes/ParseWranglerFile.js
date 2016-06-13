@@ -100,7 +100,7 @@ ParseWranglerFile.prototype.run = function () {
         throw "File type could not be inferred. Please manually select a file type";
       }
 
-      var fileHandlerClass = WranglerFileTypes[options.file_type];
+      var fileHandlerClass = WranglerFileHandlers[options.file_type];
       if (!fileHandlerClass) {
         throw new Error("file handler not yet defined (" + options.file_type +
             ")");
@@ -108,6 +108,12 @@ ParseWranglerFile.prototype.run = function () {
 
       // figure out which FileHandler to create
       var fileHandler = new fileHandlerClass(self.wranglerFile._id);
+
+      // make sure the options match the schema
+      var optionsSchema = Wrangler.fileTypes[options.file_type].schema;
+      if (!optionsSchema.newContext().validate(_.omit(options, "file_type"))) {
+        throw "Invalid options";
+      }
 
       fileHandler.parse()
         .then(deferred.resolve)

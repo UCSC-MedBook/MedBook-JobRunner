@@ -5,8 +5,16 @@ SubmitWranglerFile.prototype = Object.create(WranglerFileJob.prototype);
 SubmitWranglerFile.prototype.constructor = SubmitWranglerFile;
 SubmitWranglerFile.prototype.run = function () {
   // figure out which FileHandler to create
-  var fileHandler = new WranglerFileTypes[this.wranglerFile.options.file_type]
+  var options = this.wranglerFile.options;
+  var fileHandler = new WranglerFileHandlers[options.file_type]
       (this.wranglerFile._id);
+
+  // make sure the options match the schema
+  var optionsSchema = Wrangler.fileTypes[options.file_type].schema;
+  if (!optionsSchema.newContext().validate(_.omit(options, "file_type"))) {
+    throw "Invalid options";
+  }
+
   return fileHandler.parse();
 };
 SubmitWranglerFile.prototype.onError = function (e) {
