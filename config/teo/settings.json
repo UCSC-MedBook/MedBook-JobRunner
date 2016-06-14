@@ -1,12 +1,12 @@
 {
   "sh": "/bin/sh",
   "rscript": "Rscript",
-  "limma_path": "/Users/mokolodi1/work/medbook/job-runner/external-tools/limma/limma_ng.R",
-  "outlier_analysis": "/Users/mokolodi1/work/medbook/job-runner/external-tools/OutlierAnalysis/outlier-analysis.sh",
-  "calculate_outlier_genes": "/Users/mokolodi1/work/medbook/job-runner/external-tools/OutlierAnalysis/calculate_outlier_genes.R",
-  "gene_expression_export": "/Users/mokolodi1/work/medbook/job-runner/external-tools/exporters/gene_expression_export.py",
-  "gene_set_collection_export": "/Users/mokolodi1/work/medbook/job-runner/external-tools/exporters/gene_set_collection_export.py",
-  "limma_phenotype_export": "/Users/mokolodi1/work/medbook/job-runner/external-tools/exporters/limma_phenotype_export.py",
-  "gsea_path": "/Users/mokolodi1/work/medbook/job-runner/external-tools/gsea/rgGSEA.py",
-  "gsea_jar_path": "/Users/mokolodi1/work/medbook/job-runner/external-tools/gsea/gsea2-2.2.2.jar"
+  "limma_path": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/limma/limma_ng.R",
+  "outlier_analysis": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/OutlierAnalysis/outlier-analysis.sh",
+  "calculate_outlier_genes": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/OutlierAnalysis/calculate_outlier_genes.R",
+  "gene_expression_export": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/exporters/gene_expression_export.py",
+  "gene_set_collection_export": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/exporters/gene_set_collection_export.py",
+  "limma_phenotype_export": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/exporters/limma_phenotype_export.py",
+  "gsea_path": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/gsea/rgGSEA.py",
+  "gsea_jar_path": "/Users/mokolodi1/work/medbook/medbook/MedBook-JobRunner/external-tools/gsea/gsea2-2.2.2.jar"
 }
