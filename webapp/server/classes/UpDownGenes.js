@@ -12,11 +12,11 @@ UpDownGenes.prototype.run = function () {
   var deferred = Q.defer();
   var self = this;
 
-  var exportScript = getSetting("expression3_export");
+  var exportScript = getSetting("gene_expression_export");
   Q.all([
       // single sample data
       spawnCommand(exportScript, [
-        "--study_label", self.job.args.study_label,
+        "--data_set_id", self.job.args.data_set_id,
         "--sample_label", self.job.args.sample_label,
       ], workDir),
       // sample group data
@@ -25,6 +25,15 @@ UpDownGenes.prototype.run = function () {
       ], workDir),
     ])
     .then(function (spawnResults) {
+      console.log("spawnResults:", spawnResults);
+
+      // check if there was a problem
+      var uniqueExitCodes = _.uniq(_.pluck(spawnResults, "exitCode"));
+      console.log("uniqueExitCodes:", uniqueExitCodes);
+      if (uniqueExitCodes.length !== 1 || uniqueExitCodes[0] !== 0) {
+        throw new Error("Writing files failed (exit code not 0)");
+      }
+
       // save this result for use in a future chained promise
       self.testSamplePath = spawnResults[0].stdoutPath;
       var sampleGroupPath = spawnResults[1].stdoutPath;
@@ -34,10 +43,9 @@ UpDownGenes.prototype.run = function () {
       // # arg 2: default 1.5
       // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
 
-      var rscript = getSetting("rscript");
       var outlierGenesPath = getSetting("calculate_outlier_genes");
 
-      return spawnCommand(rscript, [
+      return spawnCommand("Rscript", [
         outlierGenesPath,
         sampleGroupPath,
         self.job.args.iqr_multiplier,
@@ -48,11 +56,8 @@ UpDownGenes.prototype.run = function () {
         throw new Error("Error code running up/down genes Rscript");
       }
 
-      var sh = getSetting("sh");
-      var outlierAnalysis = getSetting("outlier_analysis");
-
-      return spawnCommand(sh, [
-        outlierAnalysis,
+      return spawnCommand("/bin/sh", [
+        getSetting("outlier_analysis"),
         self.testSamplePath
       ], workDir);
     })

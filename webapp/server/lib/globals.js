@@ -1,7 +1,8 @@
 // actual globals
 Q = Meteor.npmRequire('q');
 byLine = Meteor.npmRequire('byline');
-ntemp = Meteor.npmRequire('temp').track();
+ntemp = Meteor.npmRequire('temp');
+ntemp.track(); // clean up folders after process exits
 
 path = Npm.require('path');
 fs = Npm.require('fs');
@@ -26,7 +27,7 @@ firstPartOfLine = function (line) {
  * @return {Promise}               A promise for the completion of the command.
  */
 // adapted from https://gist.github.com/Stuk/6226938
-spawnCommand = function (command, args, cwd) {
+spawnCommand = function (command, args, cwd, pathDefinitions) {
   console.log("command:", command);
   if (args && !args.every(function (arg) {
         var type = typeof arg;
@@ -36,6 +37,7 @@ spawnCommand = function (command, args, cwd) {
     return Q.reject(new Error("All arguments must be a boolean, string or number"));
   }
 
+  // NOTE: we should really be using temp.path here...
   function hashCode(str) {
     var hash = 0;
     if (str.length == 0) return hash;
@@ -52,9 +54,21 @@ spawnCommand = function (command, args, cwd) {
 
   // TODO: what happens to stdout/stderr?
   var stdoutPath = path.join(cwd, "./" + hashString + "_stdout.log");
-  var stdout = fs.openSync(stdoutPath, "a");
   var stderrPath = path.join(cwd, "./" + hashString + "_stderr.log");
+
+  if (pathDefinitions) {
+    if (pathDefinitions.stdoutPath) {
+      stdoutPath = pathDefinitions.stdoutPath;
+    }
+    if (pathDefinitions.stderrPath) {
+      stderrPath = pathDefinitions.stderrPath;
+    }
+  }
+
+  console.log("stdoutPath:", stdoutPath);
+  var stdout = fs.openSync(stdoutPath, "a");
   var stderr = fs.openSync(stderrPath, "a");
+
   var proc = spawn(command, args, {
     cwd: cwd,
     stdio: ["ignore", stdout, stderr]

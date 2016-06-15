@@ -4,7 +4,7 @@ function GeneTranscriptMappings (job_id) {
 GeneTranscriptMappings.prototype = Object.create(Job.prototype);
 GeneTranscriptMappings.prototype.constructor = GeneTranscriptMappings;
 GeneTranscriptMappings.prototype.run = function () {
-  var fileHandler = new WranglerFileTypes.GeneTranscriptMappings(this.job.args.blob_id);
+  var fileHandler = new WranglerFileHandlers.GeneTranscriptMappings(this.job.args.blob_id);
   return fileHandler.parse();
 };
 GeneTranscriptMappings.prototype.onError = function () {

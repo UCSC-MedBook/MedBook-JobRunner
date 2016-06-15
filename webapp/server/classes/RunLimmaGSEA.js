@@ -6,7 +6,25 @@ RunLimmaGSEA.prototype.constructor = RunLimmaGSEA;
 
 RunLimmaGSEA.prototype.run = function () {
   // create paths for files on the disk
-  var workDir = ntemp.mkdirSync("RunLimma");
+  // NOTE: GSEA will not run if the path for any of the arguments has a dash
+  // in it. Use temporary folders at /tmp/RunLimmaGSEA_[job_id]
+  // """
+  // October 14 2012
+  // Amazingly long time to figure out that GSEA fails with useless error message
+  // if any filename contains a dash "-"
+  // eesh.
+  // """
+
+  var workDir = "/tmp/" + "RunLimmaGSEA_" + this.job._id;
+
+  try {
+    fs.mkdirSync(workDir);
+  } catch (e) {
+    console.log("Pretty sure you reran the job: {$set: { status: 'waiting' }}");
+    console.log("error:", e);
+    throw e;
+  }
+
   console.log("workDir: ", workDir);
 
   // create a sample group which is the combination of the two sample groups
@@ -15,21 +33,20 @@ RunLimmaGSEA.prototype.run = function () {
   var groupA = SampleGroups.findOne(this.job.args.sample_group_a_id);
   var groupB = SampleGroups.findOne(this.job.args.sample_group_b_id);
 
-  // combine samples of same study into single array
-  var studyHash = {};
-  _.each(groupA.studies.concat(groupB.studies), function (study) {
-    console.log("study:", study);
-    var oldSamples = studyHash[study.study_label];
+  // combine samples of same data set into single array
+  var dataSetHash = {};
+  _.each(groupA.data_sets.concat(groupB.data_sets), function (dataSet) {
+    var oldSamples = dataSetHash[dataSet.data_set_id];
     if (!oldSamples) {
       oldSamples = [];
     }
 
-    studyHash[study.study_label] = oldSamples.concat(study.sample_labels);
+    dataSetHash[dataSet.data_set_id] = oldSamples.concat(dataSet.sample_labels);
   });
-  var comboSampleGroupStudies = _.map(studyHash,
-      function (sample_labels, study_label) {
+  var comboSampleGroupDataSets = _.map(dataSetHash,
+      function (sample_labels, data_set_id) {
     return {
-      study_label: study_label,
+      data_set_id: data_set_id,
       sample_labels: sample_labels,
     };
   });
@@ -38,7 +55,7 @@ RunLimmaGSEA.prototype.run = function () {
     name: "temp",
     version: 1,
     collaborations: [], // invisible
-    studies: comboSampleGroupStudies,
+    data_sets: comboSampleGroupDataSets,
   });
 
   // star the promise chain: woohoo!
@@ -51,15 +68,16 @@ RunLimmaGSEA.prototype.run = function () {
   var geneSetCollectionPath;
   // Limma output files
   var modelFitPath = path.join(workDir, "model_fit.tab");
-  var topGenePath = path.join(workDir, "Topgene.rnk");
   var voomPlotPath = path.join(workDir, "mds.pdf");
   var gseaOutput = path.join(workDir, "gseaOutput");
+  var geneSetCollectionPath = path.join(workDir, "gene_set.gmt");
+  var topGeneSortedCutPath = path.join(workDir, "Topgene.sorted.cut.rnk");
 
   Q.all([
       // write mongo data to files
 
       // expression data to a file for use in Limma
-      spawnCommand(getSetting("expression3_export"), [
+      spawnCommand(getSetting("gene_expression_export"), [
         "--sample_group_id", comboSampleGroupId,
       ], workDir),
       // phenotype file for Limma
@@ -70,7 +88,7 @@ RunLimmaGSEA.prototype.run = function () {
       // gene sets file for GSEA
       spawnCommand(getSetting("gene_set_collection_export"), [
         self.job.args.gene_set_collection_id,
-      ], workDir),
+      ], workDir, { stdoutPath: geneSetCollectionPath }),
     ])
     .then(function (spawnResults) {
       console.log("done writing files");
@@ -84,7 +102,6 @@ RunLimmaGSEA.prototype.run = function () {
       // save the file paths... order maters for spawnResults
       var expressionDataPath = spawnResults[0].stdoutPath;
       var limmaPhenotypePath = spawnResults[1].stdoutPath;
-      geneSetCollectionPath = spawnResults[2].stdoutPath; // outer block scope
 
       // run Limma
       return spawnCommand("Rscript", [
@@ -94,7 +111,7 @@ RunLimmaGSEA.prototype.run = function () {
         self.job.args.limma_top_genes_count,
         "BH", // "BH" or "none"
         modelFitPath,
-        topGenePath,
+        "Topgene.rnk",
         voomPlotPath,
       ], workDir);
     })
@@ -103,11 +120,35 @@ RunLimmaGSEA.prototype.run = function () {
         throw "Problem running limma";
       }
 
+      // need to sort by log fold change (2nd column)
+      // `sort -k2,2gr Topgene.rnk`
+      // TODO: "we should filter p-values,
+      //       but it looks like it's already filtered" - Robert
+      return spawnCommand("sort", [
+        "-k2,2gr", "Topgene.rnk",
+        "-o", path.join(workDir, "Topgene.sorted.rnk"),
+      ], workDir);
+    })
+    .then(function (sortingTopgeneResult) {
+      if (sortingTopgeneResult.exitCode !== 0) {
+        throw "Problem sorting Topgene.rnk";
+      }
+
+      // need to do `cut -f 1-2`
+      return spawnCommand("cut", [
+        "-f", "1-2", path.join(workDir, "Topgene.sorted.rnk"),
+      ], workDir, { stdoutPath: topGeneSortedCutPath });
+    })
+    .then(function (cutSortedTopGeneResult) {
+      if (cutSortedTopGeneResult.exitCode !== 0) {
+        throw "Problem cutting (-f 1-2) Topgene.rnk";
+      }
+
       // run GSEA
       var contrastName = groupA.name + " vs. " + groupB.name;
 
       return spawnCommand(getSetting("gsea_path"), [
-        "--input_tab", topGenePath,
+        "--input_tab", topGeneSortedCutPath,
         "--builtin_gmt", geneSetCollectionPath,
         "--gsea_jar", getSetting("gsea_jar_path"),
         "--adjpvalcol", "5",
