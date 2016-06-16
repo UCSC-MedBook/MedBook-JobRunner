@@ -16,6 +16,11 @@ test:
   override:
     - echo "tests go here"
 
+checkout:
+  post:
+    - git submodule sync
+    - git submodule update --init --recursive
+
 deployment:
   hub: 
     # example tag v0.45
