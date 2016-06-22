@@ -24,4 +24,4 @@ RUN pip install --upgrade virtualenv
 RUN pip install pymongo
 
 # Install Java
-RUN apt-get -m update && apt-get install -y wget unzip openjdk-7-jre zip
+RUN apt-get install -y --no-install-recommends openjdk-7-jdk
