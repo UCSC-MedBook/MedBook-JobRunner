@@ -3,10 +3,15 @@ MAINTAINER Mike Risse
 
 # Start Rscript install (pulled from https://github.com/rocker-org/rocker/blob/master/r-base/Dockerfile)
 
+# libblas-dev and liblapack-dev: https://support.bioconductor.org/p/67326/
+# might be able to remove libblas-dev and liblapack-dev after adding r-base-dev
 RUN apt-get update \
     && apt-get install -y --force-yes --no-install-recommends \
         r-base \
-        r-recommended
+        r-recommended \
+	r-base-dev
+#	libblas-dev \
+#	liblapack-dev
 
 # End Rscript install
 
