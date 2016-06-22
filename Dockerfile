@@ -6,7 +6,8 @@ MAINTAINER Mike Risse
 RUN apt-get update \
     && apt-get install -y --force-yes --no-install-recommends \
         r-base \
-        r-recommended
+        r-recommended \
+	r-base-dev
 
 # End Rscript install
 
