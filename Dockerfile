@@ -23,5 +23,5 @@ RUN easy_install pip
 RUN pip install --upgrade virtualenv
 RUN pip install pymongo
 
-# https://github.com/dockerfile/java/blob/master/oracle-java7/Dockerfile
-# Install Java: TODO
+# Install Java
+RUN apt-get -m update && apt-get install -y wget unzip openjdk-7-jre zip
