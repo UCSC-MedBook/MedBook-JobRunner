@@ -24,5 +24,8 @@ RUN easy_install pip
 RUN pip install --upgrade virtualenv
 RUN pip install pymongo
 
+# needed in the outlier analysis
+RUN apt-get install -y bc
+
 # Install Java
 RUN apt-get install -y --no-install-recommends openjdk-7-jdk
