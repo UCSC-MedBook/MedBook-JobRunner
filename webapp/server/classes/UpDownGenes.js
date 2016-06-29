@@ -104,4 +104,31 @@ UpDownGenes.prototype.run = function () {
   return deferred.promise;
 };
 
+// Called when this job successfully completes.
+// Emails the creator with an alert & link to results page
+UpDownGenes.prototype.onSuccess = function (result) {
+  console.log("UpDownGenes -- Success -- sending notification email.");
+  var self = this;
+  var userID = self.job.user_id;
+  check(userID, String);
+  var user = Meteor.users.findOne({_id:userID});
+  var emailAddress = user.collaborations.email_address;
+  check(emailAddress, String);
+  var resultsID = self.job._id;
+  check(resultsID, String);
+  var resultsURL = "https://medbook.io/patient-care/tools/outlier-analysis/" + resultsID;
+
+  Email.send({
+    to: emailAddress,
+    from: "ucscmedbook@gmail.com",
+    subject: "Outlier analysis for " + self.job.args["sample_label"] + " complete.",
+    html: "Your outlier analysis job has completed. Results:\n<a href='" + resultsURL +
+          "'>" + resultsURL + "</a>" ,
+  });
+
+  console.log("Notification email sent for job ",  self.job._id); 
+ 
+};
+
+
 JobClasses.UpDownGenes = UpDownGenes;
