@@ -198,6 +198,7 @@ RunLimmaGSEA.prototype.run = function () {
           mongo_id: self.job._id,
         }, function (err, out) {
           if (err) {
+            console.log("err:", err);
             def.reject("Error inserting blob: " + fileName);
           } else {
             def.resolve();
