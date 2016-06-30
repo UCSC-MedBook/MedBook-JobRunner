@@ -45,6 +45,7 @@ livedata@1.0.13
 localstorage@1.0.3
 logging@1.0.7
 medbook:adapters@0.0.2
+medbook:blobs@0.0.1
 medbook:namespace@0.0.2
 medbook:primary-collections@0.0.19
 medbook:referential-integrity@0.0.2

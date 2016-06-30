@@ -9,7 +9,8 @@ dependencies:
     - docker info
     - if [[ -e ~/docker/image.tar ]]; then docker load --input ~/docker/image.tar; fi
     # CIRCLE_TAG is the git tag name if that's what triggered the build
-    - docker build -t medbook/job-runner:$CIRCLE_TAG .
+    - docker build -t medbook/job-runner:$CIRCLE_TAG .: # note the colon here
+        timeout: 1200 # 20 minutes (default 10)
     - mkdir -p ~/docker; docker save medbook/job-runner:$CIRCLE_TAG > ~/docker/image.tar
 
 test:
@@ -22,7 +23,7 @@ checkout:
     - git submodule update --init --recursive
 
 deployment:
-  hub: 
+  hub:
     # example tag v0.45
     tag: /v[0-9]+(\.[0-9]+)*/
     commands:
