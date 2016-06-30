@@ -175,31 +175,40 @@ RunLimmaGSEA.prototype.run = function () {
     })
     // can't add another .then: Meteor.bindEnvironment returns immidiately
     .then(Meteor.bindEnvironment(function (result) {
+      // remove the temporary sample group (also do this if it fails)
+      // Do this down here because I don't feel like wrapping another .then
+      // in a callback.
+      SampleGroups.remove(comboSampleGroupId);
+
+      // use the ls result to insert all of the blobs
       var outputString = fs.readFileSync(result.stdoutPath, "utf8");
       var outputFileNames = _.filter(outputString.split("\n"),
           function (fileName) {
         return !!fileName && fileName.slice(-1) !== "/";
       });
 
+      console.log("inserting GSEA result blobs...");
+      var blobPromises = [];
       _.each(outputFileNames, function(fileName) {
-        var blob = Blobs.insert(path.join(gseaOutput, fileName));
+        var def = Q.defer();
+        blobPromises.push(def.promise);
 
-        Blobs.update({ _id: blob._id }, {
-          $set: {
-            "metadata.job_id": self.job._id,
-            "metadata.tool_label": "gsea",
-            "metadata.file_path": fileName,
+        Blobs2.create(path.join(gseaOutput, fileName), {
+          collection_name: "Jobs",
+          mongo_id: self.job._id,
+        }, function (err, out) {
+          if (err) {
+            def.reject("Error inserting blob: " + fileName);
+          } else {
+            def.resolve();
           }
         });
       });
-      console.log("inserted all blobs");
 
-      // remove the temporary sample group (also do this if it fails)
-      // Do this down here because I don't feel like wrapping another .then
-      // in a callback.
-      SampleGroups.remove(comboSampleGroupId);
-
-      deferred.resolve({});
+      Q.all(blobPromises).done(function (values) {
+        console.log("inserted all blobs");
+        deferred.resolve({});
+      });
     }, deferred.reject))
     .catch(Meteor.bindEnvironment(function (reason) {
       // always remove the created sample group even if it fails

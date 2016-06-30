@@ -13,3 +13,6 @@
 [submodule "external-tools"]
 	path = external-tools
 	url = https://github.com/UCSC-MedBook/external-tools
+[submodule "webapp/packages/blobs"]
+	path = webapp/packages/blobs
+	url = https://github.com/UCSC-MedBook/blobs
