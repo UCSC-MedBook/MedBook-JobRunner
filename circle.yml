@@ -9,8 +9,8 @@ dependencies:
     - docker info
     - if [[ -e ~/docker/image.tar ]]; then docker load --input ~/docker/image.tar; fi
     # CIRCLE_TAG is the git tag name if that's what triggered the build
-    - docker build -t medbook/job-runner:$CIRCLE_TAG .:
-      timeout: 1200 # 20 minutes (default 10)
+    - docker build -t medbook/job-runner:$CIRCLE_TAG .: # note the colon here
+        timeout: 1200 # 20 minutes (default 10)
     - mkdir -p ~/docker; docker save medbook/job-runner:$CIRCLE_TAG > ~/docker/image.tar
 
 test:
