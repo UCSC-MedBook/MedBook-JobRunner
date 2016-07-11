@@ -186,7 +186,7 @@ Meteor.startup(function () {
   // make sure the DataSets collection is okay and we can still wrangle things
   DataSets.update({}, {
     $set: {
-      gene_expression_wrangling: false
+      currently_wrangling: false
     }
   }, {multi: true});
 
