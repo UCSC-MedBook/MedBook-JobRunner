@@ -94,7 +94,7 @@ RunLimmaGSEA.prototype.run = function () {
       // write mongo data to files
 
       // expression data to a file for use in Limma
-      spawnCommand(getSetting("gene_expression_export"), [
+      spawnCommand(getSetting("genomic_expression_export"), [
         "--sample_group_id", comboSampleGroupId,
       ], workDir),
       // phenotype file for Limma
@@ -117,6 +117,7 @@ RunLimmaGSEA.prototype.run = function () {
       });
 
       // save the file paths... order maters for spawnResults
+      // (the order depends on the order of `spawnCommand`s in `Q.all`)
       var expressionDataPath = spawnResults[0].stdoutPath;
       var limmaPhenotypePath = spawnResults[1].stdoutPath;
 

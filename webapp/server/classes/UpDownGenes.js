@@ -12,7 +12,7 @@ UpDownGenes.prototype.run = function () {
   var deferred = Q.defer();
   var self = this;
 
-  var exportScript = getSetting("gene_expression_export");
+  var exportScript = getSetting("genomic_expression_export");
   Q.all([
       // single sample data
       spawnCommand(exportScript, [
