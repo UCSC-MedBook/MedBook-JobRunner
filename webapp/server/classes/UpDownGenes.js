@@ -116,7 +116,7 @@ UpDownGenes.prototype.onSuccess = function (result) {
   check(emailAddress, String);
   var resultsID = self.job._id;
   check(resultsID, String);
-  var resultsURL = "https://medbook.io/patient-care/tools/outlier-analysis/" + resultsID;
+  var resultsURL = "https://medbook.io/tools/outlier-analysis/" + resultsID;
 
   Email.send({
     to: emailAddress,
@@ -126,8 +126,8 @@ UpDownGenes.prototype.onSuccess = function (result) {
           "'>" + resultsURL + "</a>" ,
   });
 
-  console.log("Notification email sent for job ",  self.job._id); 
- 
+  console.log("Notification email sent for job ",  self.job._id);
+
 };
 
 
