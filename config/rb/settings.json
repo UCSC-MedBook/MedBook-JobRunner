@@ -8,6 +8,7 @@
   "viper_path": "/data/MedBook/UCSC_VIPER/bin/run-viper.R",
   "marina_path": "/data/MedBook/UCSC_VIPER/bin/run-marina.R",
   "gsea_path": "/data/MedBook/External-Tools/gsea/rgGSEA.py",
+  "gseaOnly_path": "/data/MedBook/External-Tools/gsea/gsea2-2.2.2.jar",
   "boxplot_new_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//boxplot.new.R",
   "boxplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//boxplot.R",
   "violinplot_path": "/data/MedBook/Tools/MedBook-Adapters/boxplot//violinplot.R",
