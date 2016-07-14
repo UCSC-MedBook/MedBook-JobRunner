@@ -55,36 +55,25 @@ ParseWranglerFile.prototype.run = function () {
 
       // try to guess file_type
       if (!options.file_type) {
-        if (extensionEquals(".vcf")) {
-          setFileOptions({ file_type: "MutationVCF" });
-        } else if (blobName.match(/\.rsem\.genes\.[a-z_]*\.(hugo\.|)tab/g)) {
+        if (blobName.match(/\.rsem\.genes\.[a-z_]*\.(hugo\.|)tab/g)) {
           // http://regexr.com/3d9i7
-          setFileOptions({ file_type: "RectangularGeneExpression" });
-        } else if (blobName.match(/\.rsem\.isoform\.[a-z_]*\.tab/g)) {
-          setFileOptions({ file_type: "RectangularIsoformExpression" });
-        } else if (extensionEquals(".xls") || extensionEquals("xlsx")) {
-          setFileOptions({ file_type: "BasicClinical" });
+          setFileOptions({ file_type: "RectGenomicExpression" });
         }
       }
 
-      // try to guess normalization
-      if (!options.normalization) {
-        // try to guess normalization
-        if (blobName.match(/raw_counts/g)) {
-          setFileOptions({ normalization: "raw_counts" });
-        } else if (blobName.match(/norm_counts/g)) {
-          setFileOptions({ normalization: "quantile_counts" });
-        } else if (blobName.match(/norm_tpm/g)) {
-          setFileOptions({ normalization: "tpm" });
-        } else if (blobName.match(/norm_fpkm/g)) {
-          setFileOptions({ normalization: "fpkm" });
-        }
-      }
-
-      // force certain options
-      if (options.file_type === "TCGAGeneExpression") {
-        setFileOptions({ normalization: "quantile_counts" });
-      }
+      // // try to guess normalization
+      // if (!options.normalization) {
+      //   // try to guess normalization
+      //   if (blobName.match(/raw_counts/g)) {
+      //     setFileOptions({ normalization: "raw_counts" });
+      //   } else if (blobName.match(/norm_counts/g)) {
+      //     setFileOptions({ normalization: "quantile_counts" });
+      //   } else if (blobName.match(/norm_tpm/g)) {
+      //     setFileOptions({ normalization: "tpm" });
+      //   } else if (blobName.match(/norm_fpkm/g)) {
+      //     setFileOptions({ normalization: "fpkm" });
+      //   }
+      // }
 
       if (self.blob.metadata && self.blob.metadata.wrangler_file_options) {
         setFileOptions(self.blob.metadata.wrangler_file_options);
@@ -97,7 +86,8 @@ ParseWranglerFile.prototype.run = function () {
 
       // make sure we've got a file_type
       if (!options.file_type) {
-        throw "File type could not be inferred. Please manually select a file type";
+        throw "File type could not be inferred. " +
+            "Please manually select a file type";
       }
 
       var fileHandlerClass = WranglerFileHandlers[options.file_type];

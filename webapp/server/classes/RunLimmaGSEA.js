@@ -36,26 +36,43 @@ RunLimmaGSEA.prototype.run = function () {
   // combine samples of same data set into single array
   var dataSetHash = {};
   _.each(groupA.data_sets.concat(groupB.data_sets), function (dataSet) {
-    var oldSamples = dataSetHash[dataSet.data_set_id];
-    if (!oldSamples) {
-      oldSamples = [];
+    // check if we've seen this data set already
+    var seenAlready = dataSetHash[dataSet.data_set_id];
+    if (!seenAlready) {
+      // if we haven't, set it up
+      seenAlready = {
+        data_set_name: dataSet.data_set_name,
+        sample_labels: [],
+      };
     }
 
-    dataSetHash[dataSet.data_set_id] = oldSamples.concat(dataSet.sample_labels);
+    // combine the samples together
+    seenAlready.sample_labels =
+        seenAlready.sample_labels.concat(dataSet.sample_labels)
+    dataSetHash[dataSet.data_set_id] = seenAlready;
   });
   var comboSampleGroupDataSets = _.map(dataSetHash,
-      function (sample_labels, data_set_id) {
+      function (samplesAndName, data_set_id) {
     return {
       data_set_id: data_set_id,
-      sample_labels: sample_labels,
+      data_set_name: samplesAndName.data_set_name,
+      sample_labels: samplesAndName.sample_labels,
+
+      // I think we can fake this
+      unfiltered_sample_count: 1,
     };
   });
+
+  console.log("comboSampleGroupDataSets:", comboSampleGroupDataSets);
 
   var comboSampleGroupId = SampleGroups.insert({
     name: "temp - created in RunLimmaGSEA to call an adapter",
     version: 1,
-    collaborations: [], // invisible
     data_sets: comboSampleGroupDataSets,
+    value_type: groupA.value_type,
+
+    // invisible
+    collaborations: [],
   });
 
   // star the promise chain: woohoo!
