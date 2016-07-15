@@ -1,7 +1,0 @@
-{
-  "sh": "/bin/sh",
-  "rscript": "Rscript",
-  "limma_path": "/data/home/dtflemin/core-genomic/External-Tools/limma/limma_ng.R",
-  "up_down_genes": "/data/home/dtflemin/core-genomic/External-Tools/UpDownGenes/up_down_genes.sh",
-  "calculate_outlier_genes": "/data/home/dtflemin/core-genomic/External-Tools/UpDownGenes/calculate_outlier_genes.R"
-}
