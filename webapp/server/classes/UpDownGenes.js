@@ -12,58 +12,119 @@ UpDownGenes.prototype.run = function () {
   var deferred = Q.defer();
   var self = this;
 
-  var exportScript = getSetting("genomic_expression_export");
-  Q.all([
-      // single sample data
-      spawnCommand(exportScript, [
-        "--data_set_id", self.job.args.data_set_id,
-        "--sample_label", self.job.args.sample_label,
-      ], workDir),
-      // sample group data
-      spawnCommand(exportScript, [
-        "--sample_group_id", self.job.args.sample_group_id,
-      ], workDir),
-    ])
-    .then(function (spawnResults) {
-      console.log("spawnResults:", spawnResults);
+  // if the first parts of this command have already been run,
+  // grab the paths for those output files
+  var sample_group_id = self.job.args.sample_group_id;
+  var iqr_multiplier = self.job.args.iqr_multiplier;
+  var associated_object = {
+    collection_name: "SampleGroups",
+    mongo_id: sample_group_id,
+  };
 
-      // check if there was a problem
+  function getStoragePath(file_name) {
+    var blob = Blobs2.findOne({
+      file_name: file_name,
+      associated_object: associated_object,
+      "metadata.iqr_multiplier": iqr_multiplier,
+    });
+
+    if (blob) {
+      return blob.getFilePath();
+    }
+  }
+  var medianPath = getStoragePath("median.tsv");
+  var highThresholdPath = getStoragePath("highthreshold.tsv");
+  var lowThresholdPath = getStoragePath("lowthreshold.tsv");
+  var regenerateFiles = false;
+
+  // medianPath is the one to check if they exist or not so make sure
+  // it's null if any of them don't exist
+  if (!medianPath || !highThresholdPath || !lowThresholdPath) {
+    regenerateFiles = true;
+  }
+
+  var exportScript = getSetting("genomic_expression_export");
+  var exportCommands = [
+    // single sample data
+    spawnCommand(exportScript, [
+      "--data_set_id", self.job.args.data_set_id,
+      "--sample_label", self.job.args.sample_label,
+    ], workDir),
+  ];
+
+  // also write out sample group data if necessary
+  if (regenerateFiles) {
+    exportCommands.push(spawnCommand(exportScript, [
+      "--sample_group_id", sample_group_id,
+    ], workDir));
+  }
+
+  Q.all(exportCommands)
+    .then(function (spawnResults) {
+      // check if there was a problem exporting the data
       var uniqueExitCodes = _.uniq(_.pluck(spawnResults, "exitCode"));
-      console.log("uniqueExitCodes:", uniqueExitCodes);
       if (uniqueExitCodes.length !== 1 || uniqueExitCodes[0] !== 0) {
         throw new Error("Writing files failed (exit code not 0)");
       }
 
       // save this result for use in a future chained promise
       self.testSamplePath = spawnResults[0].stdoutPath;
-      var sampleGroupPath = spawnResults[1].stdoutPath;
 
-      // // pulled from upDownGenes.sh
-      // # arg 1: matrix file
-      // # arg 2: default 1.5
-      // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
+      if (regenerateFiles) {
+        // // pulled from upDownGenes.sh
+        // # arg 1: matrix file
+        // # arg 2: default 1.5
+        // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
 
-      var outlierGenesPath = getSetting("calculate_outlier_genes");
-
-      return spawnCommand("Rscript", [
-        outlierGenesPath,
-        sampleGroupPath,
-        self.job.args.iqr_multiplier,
-      ], workDir);
+        return spawnCommand("Rscript", [
+          getSetting("calculate_outlier_genes"),
+          spawnResults[1].stdoutPath,
+          iqr_multiplier,
+        ], workDir);
+      }
     })
     .then(function (commandResult) {
-      if (commandResult.exitCode !== 0) {
-        throw new Error("Error code running up/down genes Rscript");
+      // if we just regenerated the files, use them
+      if (regenerateFiles) {
+        if (commandResult.exitCode !== 0) {
+          throw new Error("Error code running up/down genes Rscript");
+        }
+
+        medianPath = path.join(workDir, "median.tsv");
+        highThresholdPath = path.join(workDir, "highthreshold.tsv");
+        lowThresholdPath = path.join(workDir, "lowthreshold.tsv");
       }
 
       return spawnCommand("/bin/sh", [
         getSetting("outlier_analysis"),
-        self.testSamplePath
+        self.testSamplePath,
+        medianPath,
+        highThresholdPath,
+        lowThresholdPath
       ], workDir);
     })
     .then(Meteor.bindEnvironment(function (commandResult) {
+      if (commandResult.exitCode !== 0) {
+        throw new Error("Error code running outlier analysis script");
+      }
       console.log("done with single sample analysis");
-      console.log("commandResult:", commandResult);
+
+      // save the intermediary files if necessary
+      if (regenerateFiles) {
+        // NOTE: We don't technically need to wait until these are saved
+        // until the job is done.
+        // (This is an assumption that might not be true)
+
+        function printError (err) {
+          if (err) {
+            console.log("error creating blob:", err);
+          }
+        }
+        var meta = { iqr_multiplier: iqr_multiplier };
+        Blobs2.create(medianPath, associated_object, meta, printError);
+        Blobs2.create(highThresholdPath, associated_object, meta, printError);
+        Blobs2.create(lowThresholdPath, associated_object, meta, printError);
+      }
 
       // calculate the paths for the output files
       upPath = path.join(workDir, "up_outlier_genes")
@@ -121,9 +182,10 @@ UpDownGenes.prototype.onSuccess = function (result) {
   Email.send({
     to: emailAddress,
     from: "ucscmedbook@gmail.com",
-    subject: "Outlier analysis for " + self.job.args["sample_label"] + " complete.",
-    html: "Your outlier analysis job has completed. Results:\n<a href='" + resultsURL +
-          "'>" + resultsURL + "</a>" ,
+    subject: "Outlier analysis for " + self.job.args["sample_label"] +
+        " complete.",
+    html: "Your outlier analysis job has completed. Results:\n<a href='" +
+        resultsURL + "'>" + resultsURL + "</a>" ,
   });
 
   console.log("Notification email sent for job ",  self.job._id);

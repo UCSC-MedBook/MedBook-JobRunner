@@ -214,7 +214,7 @@ RunLimmaGSEA.prototype.run = function () {
         Blobs2.create(path.join(gseaOutput, fileName), {
           collection_name: "Jobs",
           mongo_id: self.job._id,
-        }, function (err, out) {
+        }, {}, function (err, out) {
           if (err) {
             console.log("err:", err);
             def.reject("Error inserting blob: " + fileName);
