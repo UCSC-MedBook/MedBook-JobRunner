@@ -67,7 +67,8 @@ function runNextJob () {
   // the same user and we want to make sure we quit out before printing if
   // that comes to pass
   console.log("");
-  console.log("job: running - ", mongoJob.name);
+  console.log("job: running - ", mongoJob.name,
+      "{ _id: " + mongoJob._id + " }");
 
   // check to see if something else has to be done first
   var mustHaveFinished = Jobs.find({
@@ -154,7 +155,12 @@ function runNextJob () {
         if (job.reasonForRetry) {
           retryLater(job.reasonForRetry);
         } else {
-          job.onSuccess(output);
+          try {
+            job.onSuccess(output);
+          } catch (e) {
+            nope(e);
+          }
+
           Jobs.update(mongoJob._id, {
             $set: {
               output: output,
