@@ -106,7 +106,15 @@ ParseWranglerFile.prototype.run = function () {
       }
 
       fileHandler.parse()
-        .then(deferred.resolve)
+        .then(Meteor.bindEnvironment(function () {
+          WranglerFiles.update(self.wranglerFile._id, {
+            $set: {
+              status: "done",
+            }
+          });
+
+          deferred.resolve();
+        }, deferred.reject))
         .catch(deferred.reject);
     }, deferred.reject))
     .catch(deferred.reject);
@@ -125,13 +133,6 @@ ParseWranglerFile.prototype.onError = function (error) {
     $set: {
       status: status,
       error_description: error_description,
-    }
-  });
-};
-ParseWranglerFile.prototype.onSuccess = function (result) {
-  WranglerFiles.update(this.wranglerFile._id, {
-    $set: {
-      status: "done",
     }
   });
 };

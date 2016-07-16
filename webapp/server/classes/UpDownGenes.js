@@ -169,27 +169,24 @@ UpDownGenes.prototype.run = function () {
 // Emails the creator with an alert & link to results page
 UpDownGenes.prototype.onSuccess = function (result) {
   console.log("UpDownGenes -- Success -- sending notification email.");
-  var self = this;
-  var userID = self.job.user_id;
-  check(userID, String);
-  var user = Meteor.users.findOne({_id:userID});
-  var emailAddress = user.collaborations.email_address;
-  check(emailAddress, String);
-  var resultsID = self.job._id;
-  check(resultsID, String);
-  var resultsURL = "https://medbook.io/tools/outlier-analysis/" + resultsID;
 
-  Email.send({
-    to: emailAddress,
-    from: "ucscmedbook@gmail.com",
-    subject: "Outlier analysis for " + self.job.args["sample_label"] +
-        " complete.",
-    html: "Your outlier analysis job has completed. Results:\n<a href='" +
-        resultsURL + "'>" + resultsURL + "</a>" ,
-  });
+  var user = Meteor.users.findOne({ _id: this.job.user_id });
+  var resultsURL = "https://medbook.io/tools/outlier-analysis/" + this.job._id;
 
-  console.log("Notification email sent for job ",  self.job._id);
+  try {
+    Email.send({
+      to: user.collaborations.email_address,
+      from: "ucscmedbook@gmail.com",
+      subject: "Outlier analysis for " + this.job.args["sample_label"] +
+          " complete.",
+      html: "Your outlier analysis job has completed. Results:\n<a href='" +
+          resultsURL + "'>" + resultsURL + "</a>" ,
+    });
 
+    console.log("Notification email sent for job ",  this.job._id);
+  } catch (e) {
+    console.log("Error: Notification email failed for job ",  this.job._id);
+  }
 };
 
 
