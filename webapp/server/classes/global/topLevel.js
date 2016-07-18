@@ -19,7 +19,7 @@ Job.prototype.retry = function(reasonForRetry) {
   this.reasonForRetry = reasonForRetry;
 };
 Job.prototype.onError = function(e) {
-  console.log("onSuccess has not been overridden in the job");
+  console.log("onError has not been overridden in the job");
 };
 Job.prototype.onSuccess = function () {
   console.log("onSuccess has not been overridden in the job");
