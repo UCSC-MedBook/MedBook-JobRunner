@@ -38,8 +38,21 @@ FinishWranglerSubmission.prototype.run = function () {
     written_to_database: {$ne: true},
   });
   if (notWrittenCursor.count() > 0) {
-    this.retry("files not done being written");
-    return;
+    var errorWritingFiles = notWrittenCursor.map(function (wranglerFile) {
+      var job = Jobs.findOne({
+        name: "ParseWranglerFile",
+        "args.wrangler_file_id": wranglerFile._id
+      });
+
+      return !job || job.status === "error";
+    });
+
+    if (errorWritingFiles.indexOf(true) !== -1) {
+      throw "Internal error writing files to database";
+    } else {
+      this.retry("files not done being written");
+      return;
+    }
   }
 
   // we did it!

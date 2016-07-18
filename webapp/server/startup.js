@@ -67,7 +67,8 @@ function runNextJob () {
   // the same user and we want to make sure we quit out before printing if
   // that comes to pass
   console.log("");
-  console.log("job: running - ", mongoJob.name);
+  console.log("job: running - ", mongoJob.name,
+      "{ _id: \"" + mongoJob._id + "\" }");
 
   // check to see if something else has to be done first
   var mustHaveFinished = Jobs.find({
@@ -154,7 +155,10 @@ function runNextJob () {
         if (job.reasonForRetry) {
           retryLater(job.reasonForRetry);
         } else {
-          job.onSuccess(output);
+          // if no output, default to empty object
+          if (!output) { output = {}; }
+
+          // set the job as done in mongo
           Jobs.update(mongoJob._id, {
             $set: {
               output: output,
@@ -162,6 +166,12 @@ function runNextJob () {
             }
           });
           console.log("job: done");
+
+          try {
+            job.onSuccess(output);
+          } catch (e) {
+            console.log("Error in onSuccess for " + mongoJob._id);
+          }
         }
       }), boundNope)
       .catch(boundNope);
@@ -186,7 +196,7 @@ Meteor.startup(function () {
   // make sure the DataSets collection is okay and we can still wrangle things
   DataSets.update({}, {
     $set: {
-      gene_expression_wrangling: false
+      currently_wrangling: false
     }
   }, {multi: true});
 

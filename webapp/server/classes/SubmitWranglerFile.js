@@ -15,7 +15,21 @@ SubmitWranglerFile.prototype.run = function () {
     throw "Invalid options";
   }
 
-  return fileHandler.parse();
+  var self = this;
+  var deferred = Q.defer();
+
+  fileHandler.parse()
+    .then(Meteor.bindEnvironment(function () {
+      WranglerFiles.update(self.wranglerFile._id, {
+        $set: {
+          written_to_database: true,
+        }
+      });
+      deferred.resolve();
+    }, deferred.reject))
+    .catch(deferred.reject);
+
+  return deferred.promise;
 };
 SubmitWranglerFile.prototype.onError = function (e) {
   // TODO: should this be the correct behaviour?
@@ -28,13 +42,6 @@ SubmitWranglerFile.prototype.onError = function (e) {
     },
     $addToSet: {
       errors: "Error running write job: " + e,
-    }
-  });
-};
-SubmitWranglerFile.prototype.onSuccess = function (result) {
-  WranglerFiles.update(this.wranglerFile._id, {
-    $set: {
-      written_to_database: true,
     }
   });
 };

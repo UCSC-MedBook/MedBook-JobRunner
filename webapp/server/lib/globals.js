@@ -149,26 +149,26 @@ setBlobMetadata = function (blob, userId, otherMetadata) {
   });
 };
 
-// NOTE: pass in the this object of the job function
-// (so that we can get to this.job.user_id)
-// ex. spawnedCommandFailedResolve.call(self, commandResult, deferred);
-spawnedCommandFailedResolve = function (commandResult, deferred) {
-  var stdout = Blobs.insert(commandResult.stdoutPath);
-  var stderr = Blobs.insert(commandResult.stderrPath);
-  setBlobMetadata(stdout, this.job.user_id);
-  setBlobMetadata(stderr, this.job.user_id);
-
-  deferred.resolve({
-    result: "Error code " + commandResult.exitCode,
-    blobs: [
-      {
-        name: "Command output (stdout)",
-        blob_id: stdout._id
-      },
-      {
-        name: "Command error output (stderr)",
-        blob_id: stderr._id
-      },
-    ],
-  });
-};
+// // NOTE: pass in the this object of the job function
+// // (so that we can get to this.job.user_id)
+// // ex. spawnedCommandFailedResolve.call(self, commandResult, deferred);
+// spawnedCommandFailedResolve = function (commandResult, deferred) {
+//   var stdout = Blobs.insert(commandResult.stdoutPath);
+//   var stderr = Blobs.insert(commandResult.stderrPath);
+//   setBlobMetadata(stdout, this.job.user_id);
+//   setBlobMetadata(stderr, this.job.user_id);
+//
+//   deferred.resolve({
+//     result: "Error code " + commandResult.exitCode,
+//     blobs: [
+//       {
+//         name: "Command output (stdout)",
+//         blob_id: stdout._id
+//       },
+//       {
+//         name: "Command error output (stderr)",
+//         blob_id: stderr._id
+//       },
+//     ],
+//   });
+// };
