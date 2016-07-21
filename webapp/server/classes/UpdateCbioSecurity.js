@@ -7,11 +7,20 @@ UpdateCbioSecurity.prototype.constructor = UpdateCbioSecurity;
 UpdateCbioSecurity.prototype.run = function () {
   if (Meteor.isServer) {
     var mysql   = Npm.require("mysql");
+    var mysql_user = process.env.MYSQL_USER;
+    if (typeof(mysql_user) === 'undefined') {
+      mysql_db = 'cbio'
+    }
+    var mysql_pass = process.env.MYSQL_PASS;
+    var mysql_db = process.env.MYSQL_DB;
+    if (typeof(mysql_db) === 'undefined') {
+      mysql_db = 'cbioportal'
+    }
     var connection = mysql.createConnection({
       host     : 'localhost',
-      user     : 'root',
-      password : 'baer1sch',
-      database : 'cbioportal'
+      user     : mysql_user,
+      password : mysql_pass,
+      database : mysql_db
     });
 
     connection.connect();
