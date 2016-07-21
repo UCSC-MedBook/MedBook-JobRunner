@@ -129,7 +129,7 @@ UpDownGenes.prototype.run = function () {
       // calculate the paths for the output files
       upPath = path.join(workDir, "up_outlier_genes")
       downPath = path.join(workDir, "down_outlier_genes")
-      top5Path = path.join(workDir, "single_sample.head.sort")
+      top5Path = path.join(workDir, "top_5_percent_most_highly_expressed_genes.tsv")
 
       // insert blobs into mongo
       // TODO -- convert these to Blobs2
