@@ -147,7 +147,6 @@ UpDownGenes.prototype.run = function () {
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
       try{
         var top5blob = createBlob2Sync(top5Path, associated_job_object, {});
-        console.log("created a blob and got", top5blob);
         output["top5percent_blob_id"] = top5blob._id;
       }catch(error){
         // Log the error and throw it again to properly fail the outlier analysis job
@@ -170,19 +169,31 @@ UpDownGenes.prototype.run = function () {
 
         // loop for each line
         output[outlier.name] = _.map(filteredLines, function (line) {
-          var tabSplit = line.split(" ");
-          return {
-            gene_label: tabSplit[0],
-            background_median: parseFloat(tabSplit[1]),
-            sample_value: parseFloat(tabSplit[2]),
-          };
+          // Populate the found genes.
+          // The top5percent overexpressed file has a different format from the
+          // other files so split its columns separately.
+          if(outlier.name == "top5percent_genes"){
+            var tabSplit = line.split("\t");
+            return {
+              gene_label: tabSplit[0],
+              sample_value: parseFloat(tabSplit[1]),
+              // no background_median
+            }
+          }else{
+            var tabSplit = line.split(" ");
+            return {
+              gene_label: tabSplit[0],
+              background_median: parseFloat(tabSplit[1]),
+              sample_value: parseFloat(tabSplit[2]),
+            };
+          }
         });
       });
 
       deferred.resolve(output);
     }, deferred.reject))
     // NOTE: Meteor.bindEnvironment returns immediately, meaning we can't
-    // quite use the nice promise syntax of chainging .thens
+    // quite use the nice promise syntax of chaining .thens
     .catch(deferred.reject);
   return deferred.promise;
 };
