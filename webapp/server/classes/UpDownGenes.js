@@ -129,17 +129,39 @@ UpDownGenes.prototype.run = function () {
       // calculate the paths for the output files
       upPath = path.join(workDir, "up_outlier_genes")
       downPath = path.join(workDir, "down_outlier_genes")
+      top5Path = path.join(workDir, "single_sample.head.sort")
 
       // insert blobs into mongo
+      // TODO -- convert these to Blobs2
       var output = {
         up_blob_id: Blobs.insert(upPath)._id,
         down_blob_id: Blobs.insert(downPath)._id,
       };
 
+      // Save output files as Blobs2 "synchronously"
+
+      var associated_job_object = {
+        collection_name: "Jobs",
+        mongo_id: self.job._id,
+      };
+      var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
+      try{
+        var top5blob = createBlob2Sync(top5Path, associated_job_object, {});
+        console.log("created a blob and got", top5blob);
+        output["top5percent_blob_id"] = top5blob._id;
+      }catch(error){
+        // Log the error and throw it again to properly fail the outlier analysis job
+        console.log("Error storing output files for Outlier Analysis:", error);
+        throw(error);
+      }
+
+
       // parse strings
       _.each([
+        // TODO - convert paths for up_ and down_ genes to use Blobs2
         { name: "up_genes", fileString: fs.readFileSync(upPath, "utf8") },
         { name: "down_genes", fileString: fs.readFileSync(downPath, "utf8") },
+        { name: "top5percent_genes", fileString: fs.readFileSync(top5blob.getFilePath(), "utf8") },
       ], function (outlier) {
         var lineArray = outlier.fileString.split("\n");
         var filteredLines = _.filter(lineArray, function (line) {
@@ -159,7 +181,7 @@ UpDownGenes.prototype.run = function () {
 
       deferred.resolve(output);
     }, deferred.reject))
-    // NOTE: Meteor.bindEnvironment returns immidiately, meaning we can't
+    // NOTE: Meteor.bindEnvironment returns immediately, meaning we can't
     // quite use the nice promise syntax of chainging .thens
     .catch(deferred.reject);
   return deferred.promise;
