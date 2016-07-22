@@ -131,22 +131,22 @@ UpDownGenes.prototype.run = function () {
       downPath = path.join(workDir, "down_outlier_genes")
       top5Path = path.join(workDir, "top_5_percent_most_highly_expressed_genes.tsv")
 
-      // insert blobs into mongo
-      // TODO -- convert these to Blobs2
-      var output = {
-        up_blob_id: Blobs.insert(upPath)._id,
-        down_blob_id: Blobs.insert(downPath)._id,
-      };
 
-      // Save output files as Blobs2 "synchronously"
+      // Save output files as Blobs2 "synchronously" with wrapAsync
 
+      var output = {};
       var associated_job_object = {
         collection_name: "Jobs",
         mongo_id: self.job._id,
       };
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
+
       try{
+        var upGenesBlob = createBlob2Sync(upPath, associated_job_object, {});
+        var downGenesBlob = createBlob2Sync(downPath, associated_job_object, {});
         var top5blob = createBlob2Sync(top5Path, associated_job_object, {});
+        output["up_blob_id"] = upGenesBlob._id;
+        output["down_blob_id"] = downGenesBlob._id;
         output["top5percent_blob_id"] = top5blob._id;
       }catch(error){
         // Log the error and throw it again to properly fail the outlier analysis job
@@ -157,9 +157,8 @@ UpDownGenes.prototype.run = function () {
 
       // parse strings
       _.each([
-        // TODO - convert paths for up_ and down_ genes to use Blobs2
-        { name: "up_genes", fileString: fs.readFileSync(upPath, "utf8") },
-        { name: "down_genes", fileString: fs.readFileSync(downPath, "utf8") },
+        { name: "up_genes", fileString: fs.readFileSync(upGenesBlob.getFilePath(), "utf8") },
+        { name: "down_genes", fileString: fs.readFileSync(downGenesBlob.getFilePath(), "utf8") },
         { name: "top5percent_genes", fileString: fs.readFileSync(top5blob.getFilePath(), "utf8") },
       ], function (outlier) {
         var lineArray = outlier.fileString.split("\n");
