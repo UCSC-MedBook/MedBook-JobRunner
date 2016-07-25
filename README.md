@@ -7,7 +7,8 @@
 3. create a new class
 4. add adapters (importers and exporters) to convert from MedBook objects to files that tools understand and store check them into external-tools
 4. add external code to external-tools repo (or mechansim to install it)
-5. add pointers to external code in settings.json
+5. add pointers to external code in your personal settings.json for use while testing
+  - also add these pointers in the MedBook main repo docker-compose.yml METEOR_SETTINGS environment variable
 6. add gui to appropriate MedBook app, that initiates job by inserting into jobs collection
   for example: 
    Jobs.insert({
