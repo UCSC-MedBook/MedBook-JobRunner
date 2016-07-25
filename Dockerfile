@@ -24,6 +24,9 @@ RUN easy_install pip
 RUN pip install --upgrade virtualenv
 RUN pip install pymongo
 
+# For expression and variance filters
+RUN pip install numpy
+
 # needed in the outlier analysis
 RUN apt-get install -y bc
 
