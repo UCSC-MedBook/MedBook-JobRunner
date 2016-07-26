@@ -4,66 +4,139 @@ function UpdateCbioSecurity (job_id) {
 UpdateCbioSecurity.prototype = Object.create(Job.prototype);
 UpdateCbioSecurity.prototype.constructor = UpdateCbioSecurity;
 
+var mysql = Meteor.npmRequire('mysql');
+
 UpdateCbioSecurity.prototype.run = function () {
-  var mysql   = Npm.require("mysql");
-  var mysql_user = process.env.MYSQL_USER;
-  if (typeof(mysql_user) === 'undefined') {
-    mysql_db = 'cbio'
-  }
-  var mysql_pass = process.env.MYSQL_PASS;
-  var mysql_db = process.env.MYSQL_DB;
-  if (typeof(mysql_db) === 'undefined') {
-    mysql_db = 'cbioportal'
-  }
   var connection = mysql.createConnection({
-    host     : 'localhost',
-    user     : mysql_user,
-    password : mysql_pass,
-    database : mysql_db
+    host     : "mysql",
+    user     : "cbio",
+    password : "P@ssword1",
+    database : "cbioportal"
   });
 
-  // NOTE: it's unclear if the connection calls are async or not
-  //   (it doesn't seem that they are). If there is an error in
-  //   one of the earlier queries it seems as if the job just plows on.
-
   connection.connect();
-  connection.query('DELETE FROM USERS',  function (err, result){
-    if (err) {
-      console.log('error deleting from users', err);
-    }
-  })
 
-  connection.query('DELETE FROM AUTHORITIES',  function (err, result){
-    if (err) {
-      console.log('error deleting from AUTHORITIES', err);
-    }
-  })
+  // Collect this information out here so that it runs in the Meteor
+  // environment, which we'll lose in the promise code below
+  var allNamesAndEmails = _.map(this.job.args.collab_names, function (name) {
+    var collab = Collaborations.findOne({ name: name });
 
-  for (var i in this.job.args.collaborationList) {
-    var collab = Collaborations.findOne({
-      name: this.job.args.collaborationList[i]
+    if (!collab) {
+      throw new Error("collaboration name invalid: " + name);
+    }
+
+    return {
+      name: name,
+      emails: collab.getUserEmails(),
+    };
+  });
+
+  var self = this;
+  var jobDeferred = Q.defer();
+
+  // This 5 was chosen arbitrarily because I don't know how to start with a
+  // .then. I like it better when all the logic code is in .thens because
+  // I find it easier to read.
+  Q.when(5)
+    // NOTE: Q.nfcall doesn't work here for some reason
+    .then(function () {
+      var deferred = Q.defer();
+
+      connection.query("DELETE FROM users", function (error, result) {
+        if (error) { deferred.reject(error); }
+        else { deferred.resolve(result); }
+      });
+
+      return deferred.promise;
+    })
+    .then(function () {
+      var deferred = Q.defer();
+
+      connection.query("DELETE FROM authorities", function (error, result) {
+        if (error) { deferred.reject(error); }
+        else { deferred.resolve(result); }
+      });
+
+      return deferred.promise;
+    })
+    .then(function () {
+      var deferred = Q.defer();
+      var allPromises = [];
+
+      // For each email insert into the users table and the authorities
+      // table. Wait until every command is done running before continuing.
+      _.each(allNamesAndEmails, function (nameAndEmails) {
+        _.each(nameAndEmails.emails, function (email) {
+          // insert into the users table
+          var usersDeferred = Q.defer();
+          connection.query('INSERT INTO users SET ?', {
+            name: email,
+            email: email,
+            enabled: 1
+          }, function (err, result) {
+            if (err) { usersDeferred.reject(err); }
+            else { usersDeferred.resolve(result); }
+          });
+          allPromises.push(usersDeferred.promise);
+
+          // insert into the authorities table
+          var authoritiesDeferred = Q.defer();
+          connection.query('INSERT INTO authorities SET ?', {
+            email: email,
+            authority: 'cbioportal:' + nameAndEmails.name
+          }, function (err, result) {
+            if (err) { authoritiesDeferred.reject(err); }
+            else { authoritiesDeferred.resolve(result); }
+          });
+          allPromises.push(authoritiesDeferred.promise);
+        });
+
+        console.log("added " + nameAndEmails.emails.length + " users to " +
+            "cbioportal:" + nameAndEmails.name);
+      });
+
+      // wait for all the promises to resolve and then continue
+      Q.all(allPromises)
+        .then(deferred.resolve)
+        .catch(deferred.reject);
+
+      return deferred.promise;
+    })
+    .then(function () {
+      connection.end();
+
+      jobDeferred.resolve();
+    })
+    .catch(function (error) {
+      jobDeferred.reject(error);
     });
-    var members = collab.getAssociatedCollaborators();
 
-    for (var j in members) {
-      var member = members[j]
-      var newUser = { name: member, email: member, enabled:1 };
-      //var newUserId = cbioUsers.insert(newUser);
-      connection.query('INSERT INTO USERS SET ?', newUser, function (err, result){
-        if (err) {
-          console.log('error inserting into cbioportal.Users', err)
-        }
-      })
-      var newAuth = { email: member, authority: 'cbbioportal:'+collab };
-      //var newUserId = cbioAuthorities.insert(newAuth);
-      connection.query('INSERT INTO AUTHORITIES SET ?', newAuth, function (err, result){
-        if (err) {
-          console.log('error inserting into cbioportal.Authorities', err)
-        }
-      })
+  return jobDeferred.promise;
+}
+
+Meteor.startup(function () {
+  var newJobBlueprint = {
+    name: "UpdateCbioSecurity",
+    user_id: "admin",
+    args: {
+      collab_names: [ "WCDT" ]
     }
   };
 
-  connection.end();
-}
+  // set up a cron job to execute every so often
+  SyncedCron.add({
+    name: "update-cbio-security",
+    schedule: function(parser) {
+      // parser is a later.parse object
+      return parser.text('every 12 hours');
+    },
+    job: function () {
+      Jobs.insert(newJobBlueprint);
+    },
+  });
+
+  // also execute immediately
+  Jobs.insert(newJobBlueprint);
+});
+
 JobClasses.UpdateCbioSecurity = UpdateCbioSecurity;
