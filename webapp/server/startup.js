@@ -132,8 +132,10 @@ function runNextJob () {
 
     var error_description = reason + ""; // convert to string
     console.log("job: rejected - ", reason);
-    if (reason.stack) {
-      console.log("stack trace:", reason.stack);
+    var stackTrace = "";
+    if (reason && reason.stack) {
+      stackTrace = reason.stack
+      console.log("stack trace:", stackTrace);
     }
     if (errorWarningUser) {
       error_description += " Error calling onError: " + errorWarningUser;
@@ -142,7 +144,7 @@ function runNextJob () {
       $set: {
         status: "error",
         error_description: error_description,
-        stack_trace: reason.stack,
+        stack_trace: stackTrace,
       }
     });
   };
