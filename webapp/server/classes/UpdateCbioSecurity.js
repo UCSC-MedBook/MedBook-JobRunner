@@ -83,7 +83,9 @@ UpdateCbioSecurity.prototype.run = function () {
           var authoritiesDeferred = Q.defer();
           connection.query('INSERT INTO authorities SET ?', {
             email: email,
-            authority: 'cbioportal:' + nameAndEmails.name
+
+            // TODO: change to `cbioportal:${nameAndEmails.name}`
+            authority: 'cbioportal:ALL',
           }, function (err, result) {
             if (err) { authoritiesDeferred.reject(err); }
             else { authoritiesDeferred.resolve(result); }
@@ -92,7 +94,7 @@ UpdateCbioSecurity.prototype.run = function () {
         });
 
         console.log("added " + nameAndEmails.emails.length + " users to " +
-            "cbioportal:" + nameAndEmails.name);
+            "cbioportal:ALL");
       });
 
       // wait for all the promises to resolve and then continue
