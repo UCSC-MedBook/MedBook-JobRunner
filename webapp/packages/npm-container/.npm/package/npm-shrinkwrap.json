@@ -146,6 +146,34 @@
     "mime": {
       "version": "1.2.11"
     },
+    "mysql": {
+      "version": "2.11.1",
+      "dependencies": {
+        "bignumber.js": {
+          "version": "2.3.0"
+        },
+        "readable-stream": {
+          "version": "1.1.14",
+          "dependencies": {
+            "core-util-is": {
+              "version": "1.0.2"
+            },
+            "isarray": {
+              "version": "0.0.1"
+            },
+            "string_decoder": {
+              "version": "0.10.31"
+            },
+            "inherits": {
+              "version": "2.0.1"
+            }
+          }
+        },
+        "sqlstring": {
+          "version": "2.0.1"
+        }
+      }
+    },
     "q": {
       "version": "1.4.1"
     },
