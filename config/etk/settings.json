@@ -8,5 +8,8 @@
   "gene_set_collection_export": "/Users/Shared/external-tools/exporters/gene_set_collection_export.py",
   "limma_phenotype_export": "/Users/Shared/external-tools/exporters/limma_phenotype_export.py",
   "gsea_path": "/Users/Shared/external-tools/gsea/rgGSEA.py",
-  "gsea_jar_path": "/Users/Shared/external-tools/gsea/gsea2-2.2.2.jar"
+  "gsea_jar_path": "/Users/Shared/external-tools/gsea/gsea2-2.2.2.jar",
+  "python": "python",
+  "expression_level_gene_filter": "/Users/Shared/external-tools/ExpressionAndVarianceFilters/filter_out_genes_unexpressed_in_most_samples.py",
+  "variance_gene_filter": "/Users/Shared/external-tools/ExpressionAndVarianceFilters/filter_out_lowest_varying_genes.py"
 }
