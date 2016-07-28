@@ -74,20 +74,25 @@ function runNextJob () {
   var mustHaveFinished = Jobs.find({
     _id: {$in: mongoJob.prerequisite_job_ids}
   }).fetch();
+  console.log("found prerequisite jobs", mustHaveFinished); // XXX
   for (var index in mustHaveFinished) {
+    console.log("checking this prereq:", index); // XXX
     // if there was an error with that one, there's an error with this one
-    if (mustHaveFinished.status === "error") {
+    if (index.status === "error") {
       Jobs.update(mongoJob._id, {
         $set: {
           status: "error",
           error_description: "error in prerequisite job",
         }
       });
-    } else {
+      return;
+    // Prerequisites are still running; retry again later.
+    } else if(index.status !== "done"){
       retryLater("not finished with prerequisite job");
+      return;
     }
-    return;
   }
+  // All prerequisites are "done"; carry on.
 
   // get the job's class
   var jobClass = JobClasses[mongoJob.name];
