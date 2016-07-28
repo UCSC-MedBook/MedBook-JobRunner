@@ -13,7 +13,6 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
 
   var self = this;
   var sample_group_id = self.job.args.sample_group_id;
-  console.log("using sgid", sample_group_id); // XXX 
 
   var exportScript = getSetting("genomic_expression_export");
   var python = getSetting("python");
@@ -30,9 +29,8 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
 
   // Export the data
   exportCommand.then(function(exportResults){ 
-    console.log("export command ran with results", exportResults);
+    console.log("export command ran with results", exportResults); // XXX
     if(exportResults.exitCode !== 0){
-      // TODO print stderr for the command
       throw new Error("Writing file failed (exit code not 0)");
     }
     // input & output paths for expression level filter
@@ -50,22 +48,32 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
  
     }).then(function(exprFilterResults){
       console.log("expression level filter ran with results", exprFilterResults);
-      // TODO, if exit code was 1, throw error.
-      // TODO print stderr for the command
+      if(exprFilterResults.exitCode !== 0){
+        throw new Error("Failed to apply expression-level filter (exit code not 0)");
+      }
+      // set up variance filter
 
+      // End users will see custom path that's set in patientCare when downloading
+      // but internally this path is used.
+      self.fullyFilteredPath = path.join(workDir, "sampleGroup_filteredByExprAndVar.tsv");
+
+      return spawnCommand(python,
+        [
+          varianceFilterScript,
+          "--in_file", self.filteredByExpressionPath,
+          "--filter_level", "0.2",
+          "--out_file", self.fullyFilteredPath,
+        ],
+        workDir); 
+
+    }).then(Meteor.bindEnvironment(function(varianceFilterResults){
       
-      
-  
-      // TODO TODO
-      // Run the variance filter here and add another then block
-      // For now, just upload it with only expression level filtering
+      console.log("varianceFilter command ran with results", varianceFilterResults); // XXX
+      if(varianceFilterResults.exitCode !== 0){
+        throw new Error("Failed to apply variance filter (exit code not 0)");
+      }
 
-      return "variance filter results go here";
-
-    }).then(Meteor.bindEnvironment(function(varResult){
-    // Create the final Blob2, then resolve the promise.
-
-    console.log("not sure what varresult is", varResult);
+      // Filters were applied; create the output Blob2
 
       var associated_samplegroup = {
         collection_name: "SampleGroups",
@@ -74,23 +82,23 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
 
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
       // Errors from this will be thrown to the catch below
-      var results = createBlob2Sync(self.filteredByExpressionPath, associated_samplegroup, {});
-      console.log("made blob2 with results", results);
+      var blob = createBlob2Sync(self.fullyFilteredPath, associated_samplegroup, {});
 
+      console.log("made blob2 with blob", blob); // XXX
 
-
-
+      var output = {"filtered_samples_blob_id" : blob._id};
       // Everything worked; resolve the promise
       console.log("apply expr async finished, resolving...now"); // XXX
-      deferred.resolve();
-    },deferred.reject())).catch(function(error){ 
+      deferred.resolve(output);
+    },function(err){
+      console.log("bind environment got error", err);
+      deferred.reject(err);
+    })).catch(function(error){ 
+      console.log("about to deferred reject with error", error);
       // If we got an error anywhere along the chain,
       // fail the job
       deferred.reject(error);
     });
-
-  console.log("apply expr job ran. Just waiting on the deferred now. "); // XXX
-
   // Will wait for the async code to run and either resolve or reject
   // before completing the job
   return deferred.promise;
