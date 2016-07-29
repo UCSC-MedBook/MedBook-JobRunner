@@ -74,11 +74,9 @@ function runNextJob () {
   var mustHaveFinished = Jobs.find({
     _id: {$in: mongoJob.prerequisite_job_ids}
   }).fetch();
-  console.log("found prerequisite jobs", mustHaveFinished); // XXX
-  for (var index in mustHaveFinished) {
-    console.log("checking this prereq:", index); // XXX
+  for (var index = 0; index<mustHaveFinished.length; index++) {
     // if there was an error with that one, there's an error with this one
-    if (index.status === "error") {
+    if (mustHaveFinished[index].status === "error") {
       Jobs.update(mongoJob._id, {
         $set: {
           status: "error",
@@ -87,7 +85,7 @@ function runNextJob () {
       });
       return;
     // Prerequisites are still running; retry again later.
-    } else if(index.status !== "done"){
+    } else if(mustHaveFinished[index].status !== "done"){
       retryLater("not finished with prerequisite job");
       return;
     }
