@@ -156,7 +156,7 @@ UpDownGenes.prototype.run = function () {
           }
         }
         // Metadata for median & up downblobs; note if filtered. 
-        var meta = { iqr_multiplier: iqr_multiplier};,
+        var meta = { iqr_multiplier: iqr_multiplier};
         if(usingFilter){ meta.from_filtered_sample_group = true; }
 
         Blobs2.create(medianPath, associated_object, meta, printError);
