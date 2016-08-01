@@ -82,7 +82,8 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
 
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
       // Errors from this will be thrown to the catch below
-      var blob = createBlob2Sync(self.fullyFilteredPath, associated_samplegroup, {});
+      var metadata = {"type" : "ExprAndVarFilteredSampleGroupData"}
+      var blob = createBlob2Sync(self.fullyFilteredPath, associated_samplegroup, metadata);
 
       console.log("made blob2 with blob", blob); // XXX
 
