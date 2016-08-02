@@ -12,29 +12,43 @@ UpDownGenes.prototype.run = function () {
   var deferred = Q.defer();
   var self = this;
 
+
+
   // if the first parts of this command have already been run,
   // grab the paths for those output files
   var sample_group_id = self.job.args.sample_group_id;
   var iqr_multiplier = self.job.args.iqr_multiplier;
+
   var associated_object = {
     collection_name: "SampleGroups",
     mongo_id: sample_group_id,
   };
 
-  function getStoragePath(file_name) {
+  // Find a potential blob associated with the object above.
+  // only for median/highthreshold/lowthreshold.tsv blobs which have
+  // the from_filtered_sample_group field
+  // is_filtered: true if it's using the filtered version of a
+  // sample group; null otherwise (NOT false!)
+  function getStoragePath(file_name, is_filtered) {
     var blob = Blobs2.findOne({
       file_name: file_name,
       associated_object: associated_object,
       "metadata.iqr_multiplier": iqr_multiplier,
+      "metadata.from_filtered_sample_group": is_filtered
     });
 
     if (blob) {
       return blob.getFilePath();
     }
   }
-  var medianPath = getStoragePath("median.tsv");
-  var highThresholdPath = getStoragePath("highthreshold.tsv");
-  var lowThresholdPath = getStoragePath("lowthreshold.tsv");
+
+  // Set up to work with getStoragePath; either true or null
+  var usingFilter = self.job.args.use_filtered_sample_group
+  if(! usingFilter){usingFilter = null;}
+
+  var medianPath = getStoragePath("median.tsv", usingFilter);
+  var highThresholdPath = getStoragePath("highthreshold.tsv", usingFilter);
+  var lowThresholdPath = getStoragePath("lowthreshold.tsv", usingFilter);
   var regenerateFiles = false;
 
   // medianPath is the one to check if they exist or not so make sure
@@ -44,6 +58,7 @@ UpDownGenes.prototype.run = function () {
   }
 
   var exportScript = getSetting("genomic_expression_export");
+
   var exportCommands = [
     // single sample data
     spawnCommand(exportScript, [
@@ -54,9 +69,24 @@ UpDownGenes.prototype.run = function () {
 
   // also write out sample group data if necessary
   if (regenerateFiles) {
-    exportCommands.push(spawnCommand(exportScript, [
-      "--sample_group_id", sample_group_id,
-    ], workDir));
+    // If we're using the filtered sample group,
+    // get the blob with filtered data; otherwise, export it from scratch. 
+    if(usingFilter){
+      var filteredBlob = Blobs2.findOne({
+        associated_object:associated_object,
+        "metadata.type":"ExprAndVarFilteredSampleGroupData",
+      });
+      // If we can't find one, just give up instead of generating it here;
+      // We don't want to get into calling a job from another job
+      if(!filteredBlob){
+        throw new Error("Couldn't find the filtered sample group data that was promised.");
+      }
+      var filteredBlobPath = filteredBlob.getFilePath() ;
+    }else{
+      exportCommands.push(spawnCommand(exportScript, [
+        "--sample_group_id", sample_group_id,
+      ], workDir));
+    }
   }
 
   Q.all(exportCommands)
@@ -76,9 +106,14 @@ UpDownGenes.prototype.run = function () {
         // # arg 2: default 1.5
         // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
 
+        // Get the path for the sample group data
+        // depends on whether we just exported it or are using a filtered blob
+        var sampleGroupPath=(usingFilter)? filteredBlobPath : spawnResults[1].stdoutPath;
+
+        // Calculate the median, high, and low thresholds for the genes
         return spawnCommand("Rscript", [
           getSetting("calculate_outlier_genes"),
-          spawnResults[1].stdoutPath,
+          sampleGroupPath,
           iqr_multiplier,
         ], workDir);
       }
@@ -120,7 +155,10 @@ UpDownGenes.prototype.run = function () {
             console.log("error creating blob:", err);
           }
         }
-        var meta = { iqr_multiplier: iqr_multiplier };
+        // Metadata for median & up downblobs; note if filtered. 
+        var meta = { iqr_multiplier: iqr_multiplier};
+        if(usingFilter){ meta.from_filtered_sample_group = true; }
+
         Blobs2.create(medianPath, associated_object, meta, printError);
         Blobs2.create(highThresholdPath, associated_object, meta, printError);
         Blobs2.create(lowThresholdPath, associated_object, meta, printError);
@@ -129,17 +167,39 @@ UpDownGenes.prototype.run = function () {
       // calculate the paths for the output files
       upPath = path.join(workDir, "up_outlier_genes")
       downPath = path.join(workDir, "down_outlier_genes")
+      top5Path = path.join(workDir, "top_5_percent_most_highly_expressed_genes.tsv")
 
-      // insert blobs into mongo
-      var output = {
-        up_blob_id: Blobs.insert(upPath)._id,
-        down_blob_id: Blobs.insert(downPath)._id,
+
+      // Save output files as Blobs2 "synchronously" with wrapAsync
+
+      var output = {};
+      var associated_job_object = {
+        collection_name: "Jobs",
+        mongo_id: self.job._id,
       };
+      var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
+
+      // Output files are associated with a job, not the sample group,
+      // so they don't need to be tagged with usingFilter. 
+      try{
+        var upGenesBlob = createBlob2Sync(upPath, associated_job_object, {});
+        var downGenesBlob = createBlob2Sync(downPath, associated_job_object, {});
+        var top5blob = createBlob2Sync(top5Path, associated_job_object, {});
+        output["up_blob_id"] = upGenesBlob._id;
+        output["down_blob_id"] = downGenesBlob._id;
+        output["top5percent_blob_id"] = top5blob._id;
+      }catch(error){
+        // Log the error and throw it again to properly fail the outlier analysis job
+        console.log("Error storing output files for Outlier Analysis:", error);
+        throw(error);
+      }
+
 
       // parse strings
       _.each([
-        { name: "up_genes", fileString: fs.readFileSync(upPath, "utf8") },
-        { name: "down_genes", fileString: fs.readFileSync(downPath, "utf8") },
+        { name: "up_genes", fileString: fs.readFileSync(upGenesBlob.getFilePath(), "utf8") },
+        { name: "down_genes", fileString: fs.readFileSync(downGenesBlob.getFilePath(), "utf8") },
+        { name: "top5percent_genes", fileString: fs.readFileSync(top5blob.getFilePath(), "utf8") },
       ], function (outlier) {
         var lineArray = outlier.fileString.split("\n");
         var filteredLines = _.filter(lineArray, function (line) {
@@ -148,19 +208,31 @@ UpDownGenes.prototype.run = function () {
 
         // loop for each line
         output[outlier.name] = _.map(filteredLines, function (line) {
-          var tabSplit = line.split(" ");
-          return {
-            gene_label: tabSplit[0],
-            background_median: parseFloat(tabSplit[1]),
-            sample_value: parseFloat(tabSplit[2]),
-          };
+          // Populate the found genes.
+          // The top5percent overexpressed file has a different format from the
+          // other files so split its columns separately.
+          if(outlier.name == "top5percent_genes"){
+            var tabSplit = line.split("\t");
+            return {
+              gene_label: tabSplit[0],
+              sample_value: parseFloat(tabSplit[1]),
+              // no background_median
+            }
+          }else{
+            var tabSplit = line.split(" ");
+            return {
+              gene_label: tabSplit[0],
+              background_median: parseFloat(tabSplit[1]),
+              sample_value: parseFloat(tabSplit[2]),
+            };
+          }
         });
       });
 
       deferred.resolve(output);
     }, deferred.reject))
-    // NOTE: Meteor.bindEnvironment returns immidiately, meaning we can't
-    // quite use the nice promise syntax of chainging .thens
+    // NOTE: Meteor.bindEnvironment returns immediately, meaning we can't
+    // quite use the nice promise syntax of chaining .thens
     .catch(deferred.reject);
   return deferred.promise;
 };
