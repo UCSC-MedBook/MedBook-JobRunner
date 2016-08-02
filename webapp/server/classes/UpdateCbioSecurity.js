@@ -117,6 +117,8 @@ UpdateCbioSecurity.prototype.run = function () {
 }
 
 Meteor.startup(function () {
+  // NOTE: the job can also be called by any user via Meteor method
+  // in patient-care (refreshCBioPortalAccess)
   var newJobBlueprint = {
     name: "UpdateCbioSecurity",
     user_id: "admin",
@@ -130,7 +132,7 @@ Meteor.startup(function () {
     name: "update-cbio-security",
     schedule: function(parser) {
       // parser is a later.parse object
-      return parser.text('every 12 hours');
+      return parser.text('every 6 hours');
     },
     job: function () {
       Jobs.insert(newJobBlueprint);
