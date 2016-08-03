@@ -9,7 +9,7 @@ ApplyExprAndVarianceFilters.prototype.constructor = ApplyExprAndVarianceFilters;
 ApplyExprAndVarianceFilters.prototype.run = function () {
 
   var workDir = ntemp.mkdirSync("ApplyExprAndVarianceFilters");
-  console.log("ApplyExprAndVarianceFilters: workDir: ", workDir);
+  console.log("workDir: ", workDir);
 
   var self = this;
   var sample_group_id = self.job.args.sample_group_id;
@@ -29,7 +29,6 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
 
   // Export the data
   exportCommand.then(function(exportResults){ 
-    console.log("export command ran with results", exportResults); // XXX
     if(exportResults.exitCode !== 0){
       throw new Error("Writing file failed (exit code not 0)");
     }
@@ -67,8 +66,6 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
         workDir); 
 
     }).then(Meteor.bindEnvironment(function(varianceFilterResults){
-      
-      console.log("varianceFilter command ran with results", varianceFilterResults); // XXX
       if(varianceFilterResults.exitCode !== 0){
         throw new Error("Failed to apply variance filter (exit code not 0)");
       }
@@ -84,18 +81,13 @@ ApplyExprAndVarianceFilters.prototype.run = function () {
       // Errors from this will be thrown to the catch below
       var metadata = {"type" : "ExprAndVarFilteredSampleGroupData"}
       var blob = createBlob2Sync(self.fullyFilteredPath, associated_samplegroup, metadata);
-
-      console.log("made blob2 with blob", blob); // XXX
-
       var output = {"filtered_samples_blob_id" : blob._id};
+
       // Everything worked; resolve the promise
-      console.log("apply expr async finished, resolving...now"); // XXX
       deferred.resolve(output);
     },function(err){
-      console.log("bind environment got error", err);
       deferred.reject(err);
     })).catch(function(error){ 
-      console.log("about to deferred reject with error", error);
       // If we got an error anywhere along the chain,
       // fail the job
       deferred.reject(error);
