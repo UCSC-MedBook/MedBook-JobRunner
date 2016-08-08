@@ -63,8 +63,6 @@ RunLimmaGSEA.prototype.run = function () {
     };
   });
 
-  console.log("comboSampleGroupDataSets:", comboSampleGroupDataSets);
-
   var comboSampleGroupId = SampleGroups.insert({
     name: "temp - created in RunLimmaGSEA to call an adapter",
     version: 1,

@@ -12,29 +12,43 @@ UpDownGenes.prototype.run = function () {
   var deferred = Q.defer();
   var self = this;
 
+
+
   // if the first parts of this command have already been run,
   // grab the paths for those output files
   var sample_group_id = self.job.args.sample_group_id;
   var iqr_multiplier = self.job.args.iqr_multiplier;
+
   var associated_object = {
     collection_name: "SampleGroups",
     mongo_id: sample_group_id,
   };
 
-  function getStoragePath(file_name) {
+  // Find a potential blob associated with the object above.
+  // only for median/highthreshold/lowthreshold.tsv blobs which have
+  // the from_filtered_sample_group field
+  // is_filtered: true if it's using the filtered version of a
+  // sample group; null otherwise (NOT false!)
+  function getStoragePath(file_name, is_filtered) {
     var blob = Blobs2.findOne({
       file_name: file_name,
       associated_object: associated_object,
       "metadata.iqr_multiplier": iqr_multiplier,
+      "metadata.from_filtered_sample_group": is_filtered
     });
 
     if (blob) {
       return blob.getFilePath();
     }
   }
-  var medianPath = getStoragePath("median.tsv");
-  var highThresholdPath = getStoragePath("highthreshold.tsv");
-  var lowThresholdPath = getStoragePath("lowthreshold.tsv");
+
+  // Set up to work with getStoragePath; either true or null
+  var usingFilter = self.job.args.use_filtered_sample_group
+  if(! usingFilter){usingFilter = null;}
+
+  var medianPath = getStoragePath("median.tsv", usingFilter);
+  var highThresholdPath = getStoragePath("highthreshold.tsv", usingFilter);
+  var lowThresholdPath = getStoragePath("lowthreshold.tsv", usingFilter);
   var regenerateFiles = false;
 
   // medianPath is the one to check if they exist or not so make sure
@@ -44,6 +58,7 @@ UpDownGenes.prototype.run = function () {
   }
 
   var exportScript = getSetting("genomic_expression_export");
+
   var exportCommands = [
     // single sample data
     spawnCommand(exportScript, [
@@ -54,9 +69,24 @@ UpDownGenes.prototype.run = function () {
 
   // also write out sample group data if necessary
   if (regenerateFiles) {
-    exportCommands.push(spawnCommand(exportScript, [
-      "--sample_group_id", sample_group_id,
-    ], workDir));
+    // If we're using the filtered sample group,
+    // get the blob with filtered data; otherwise, export it from scratch. 
+    if(usingFilter){
+      var filteredBlob = Blobs2.findOne({
+        associated_object:associated_object,
+        "metadata.type":"ExprAndVarFilteredSampleGroupData",
+      });
+      // If we can't find one, just give up instead of generating it here;
+      // We don't want to get into calling a job from another job
+      if(!filteredBlob){
+        throw new Error("Couldn't find the filtered sample group data that was promised.");
+      }
+      var filteredBlobPath = filteredBlob.getFilePath() ;
+    }else{
+      exportCommands.push(spawnCommand(exportScript, [
+        "--sample_group_id", sample_group_id,
+      ], workDir));
+    }
   }
 
   Q.all(exportCommands)
@@ -76,9 +106,14 @@ UpDownGenes.prototype.run = function () {
         // # arg 2: default 1.5
         // /usr/bin/Rscript outlier.R mRNA.NBL.POG.pancan.combat.5.tab 2
 
+        // Get the path for the sample group data
+        // depends on whether we just exported it or are using a filtered blob
+        var sampleGroupPath=(usingFilter)? filteredBlobPath : spawnResults[1].stdoutPath;
+
+        // Calculate the median, high, and low thresholds for the genes
         return spawnCommand("Rscript", [
           getSetting("calculate_outlier_genes"),
-          spawnResults[1].stdoutPath,
+          sampleGroupPath,
           iqr_multiplier,
         ], workDir);
       }
@@ -120,7 +155,10 @@ UpDownGenes.prototype.run = function () {
             console.log("error creating blob:", err);
           }
         }
-        var meta = { iqr_multiplier: iqr_multiplier };
+        // Metadata for median & up downblobs; note if filtered. 
+        var meta = { iqr_multiplier: iqr_multiplier};
+        if(usingFilter){ meta.from_filtered_sample_group = true; }
+
         Blobs2.create(medianPath, associated_object, meta, printError);
         Blobs2.create(highThresholdPath, associated_object, meta, printError);
         Blobs2.create(lowThresholdPath, associated_object, meta, printError);
@@ -141,6 +179,8 @@ UpDownGenes.prototype.run = function () {
       };
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
 
+      // Output files are associated with a job, not the sample group,
+      // so they don't need to be tagged with usingFilter. 
       try{
         var upGenesBlob = createBlob2Sync(upPath, associated_job_object, {});
         var downGenesBlob = createBlob2Sync(downPath, associated_job_object, {});

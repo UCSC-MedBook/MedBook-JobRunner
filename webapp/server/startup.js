@@ -74,20 +74,23 @@ function runNextJob () {
   var mustHaveFinished = Jobs.find({
     _id: {$in: mongoJob.prerequisite_job_ids}
   }).fetch();
-  for (var index in mustHaveFinished) {
+  for (var index = 0; index<mustHaveFinished.length; index++) {
     // if there was an error with that one, there's an error with this one
-    if (mustHaveFinished.status === "error") {
+    if (mustHaveFinished[index].status === "error") {
       Jobs.update(mongoJob._id, {
         $set: {
           status: "error",
           error_description: "error in prerequisite job",
         }
       });
-    } else {
+      return;
+    // Prerequisites are still running; retry again later.
+    } else if(mustHaveFinished[index].status !== "done"){
       retryLater("not finished with prerequisite job");
+      return;
     }
-    return;
   }
+  // All prerequisites are "done"; carry on.
 
   // get the job's class
   var jobClass = JobClasses[mongoJob.name];
@@ -132,8 +135,10 @@ function runNextJob () {
 
     var error_description = reason + ""; // convert to string
     console.log("job: rejected - ", reason);
-    if (reason.stack) {
-      console.log("stack trace:", reason.stack);
+    var stackTrace = "";
+    if (reason && reason.stack) {
+      stackTrace = reason.stack
+      console.log("stack trace:", stackTrace);
     }
     if (errorWarningUser) {
       error_description += " Error calling onError: " + errorWarningUser;
@@ -142,7 +147,7 @@ function runNextJob () {
       $set: {
         status: "error",
         error_description: error_description,
-        stack_trace: reason.stack,
+        stack_trace: stackTrace,
       }
     });
   };
