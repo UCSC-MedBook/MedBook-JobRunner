@@ -6,7 +6,7 @@
  "outlier_analysis": "/data/MedBook/MedBook-JobRunner/external-tools/OutlierAnalysis/outlier-analysis.sh",
  "calculate_outlier_genes": "/data/MedBook/MedBook-JobRunner/external-tools/OutlierAnalysis/calculate_outlier_genes.R",
  "genomic_expression_export": "/data/MedBook/MedBook-JobRunner/external-tools/exporters/genomic_expression_export.py",
- "gene_set_collection_export": "/data/MedBook/MedBook-JobRunner/external-tools/exporters/gene_set_collection_export.py",
+ "gene_set_group_export": "/data/MedBook/MedBook-JobRunner/external-tools/exporters/gene_set_group_export.py",
  "limma_phenotype_export": "/data/MedBook/MedBook-JobRunner/external-tools/exporters/limma_phenotype_export.py",
  "apply_signature_path" : "/data/MedBook/External-Tools/signature/apply_signature.py",
  "viper_supervised_path": "/data/MedBook/UCSC_VIPER/bin/run-viper-supervised.R",
