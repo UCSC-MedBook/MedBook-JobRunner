@@ -58,6 +58,8 @@ ParseWranglerFile.prototype.run = function () {
         if (blobName.match(/\.rsem\.genes\.[a-z_]*\.(hugo\.|)tab/g)) {
           // http://regexr.com/3d9i7
           setFileOptions({ file_type: "RectGenomicExpression" });
+        } else if (blobName.match(/\.gmt$/g)) {
+          setFileOptions({ file_type: "GeneSetGroup" });
         }
       }
 
