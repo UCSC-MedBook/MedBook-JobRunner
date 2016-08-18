@@ -80,12 +80,12 @@ RunLimmaGSEA.prototype.run = function () {
 
   // define up here so as to be available throughout promise chain (so that
   // we can skip a .then block)
-  var geneSetCollectionPath;
+  var geneSetGroupPath;
   // Limma output files
   var modelFitPath = path.join(workDir, "model_fit.tab");
   var voomPlotPath = path.join(workDir, "mds.pdf");
   var gseaOutput = path.join(workDir, "gseaOutput");
-  var geneSetCollectionPath = path.join(workDir, "gene_set.gmt");
+  var geneSetGroupPath = path.join(workDir, "gene_set.gmt");
   var topGeneSortedCutPath = path.join(workDir, "Topgene.sorted.cut.rnk");
 
   Q.all([
@@ -101,9 +101,9 @@ RunLimmaGSEA.prototype.run = function () {
         this.job.args.sample_group_b_id
       ], workDir),
       // gene sets file for GSEA
-      spawnCommand(getSetting("gene_set_collection_export"), [
-        self.job.args.gene_set_collection_id,
-      ], workDir, { stdoutPath: geneSetCollectionPath }),
+      spawnCommand(getSetting("gene_set_group_export"), [
+        self.job.args.gene_set_group_id,
+      ], workDir, { stdoutPath: geneSetGroupPath }),
     ])
     .then(function (spawnResults) {
       console.log("done writing files");
@@ -165,7 +165,7 @@ RunLimmaGSEA.prototype.run = function () {
 
       return spawnCommand(getSetting("gsea_path"), [
         "--input_tab", topGeneSortedCutPath,
-        "--builtin_gmt", geneSetCollectionPath,
+        "--builtin_gmt", geneSetGroupPath,
         "--gsea_jar", getSetting("gsea_jar_path"),
         "--adjpvalcol", "5",
         "--signcol", "2",

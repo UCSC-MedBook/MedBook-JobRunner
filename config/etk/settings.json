@@ -5,7 +5,7 @@
   "outlier_analysis": "/Users/Shared/external-tools/OutlierAnalysis/outlier-analysis.sh",
   "calculate_outlier_genes": "/Users/Shared/external-tools/OutlierAnalysis/calculate_outlier_genes.R",
   "genomic_expression_export": "/Users/Shared/external-tools/exporters/genomic_expression_export.py",
-  "gene_set_collection_export": "/Users/Shared/external-tools/exporters/gene_set_collection_export.py",
+  "gene_set_group_export": "/Users/Shared/external-tools/exporters/gene_set_group_export.py",
   "limma_phenotype_export": "/Users/Shared/external-tools/exporters/limma_phenotype_export.py",
   "gsea_path": "/Users/Shared/external-tools/gsea/rgGSEA.py",
   "gsea_jar_path": "/Users/Shared/external-tools/gsea/gsea2-2.2.2.jar",
