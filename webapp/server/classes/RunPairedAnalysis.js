@@ -46,7 +46,6 @@ RunPairedAnalysis.prototype.run = function () {
       return;
     }
 
-    console.log("Object.keys(result[0]):", Object.keys(result[0]));
     var geneSetId = result[0]._id;
 
     // initialize the bulk insert for the records
