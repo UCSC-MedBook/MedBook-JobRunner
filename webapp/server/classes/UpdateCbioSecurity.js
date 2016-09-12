@@ -140,7 +140,7 @@ Meteor.startup(function () {
   });
 
   // also execute immediately
-  Jobs.insert(newJobBlueprint);
+  // Jobs.insert(newJobBlueprint); XXX
 });
 
 JobClasses.UpdateCbioSecurity = UpdateCbioSecurity;
