@@ -63,6 +63,22 @@ The gene set created by limma is attached to the job via associated object secur
 
 The two PDFs created by limma are stored as blobs, which are attached to the job. The blobs are named `Rplots.pdf` and `mds.pdf`.
 
+### Single Sample Top Genes (`RunSingleSampleTopGenes`)
+
+This job computes a signature with the top N or top N percent of genes in a single sample.
+
+#### Arguments
+
+- `data_set_id`, `data_set_name`: data set of the sample
+- `sample_label`: sample label
+- `percent_or_count`: either `"percent"` or `"count"`. This specifies whether the job will compute the top N genes or the top N percent of genes.
+- `top_percent`: top N percent for when `percent_or_count` is `"percent"`. Mutually exclusive with `top_count`.
+- `top_count`: top N for when `percent_or_count` is `"count"`. Mutually exclusive with `top_percent`.
+
+#### Output
+
+A signature attached via associated object security to the job.
+
 ### Outlier Analysis (`UpDownGenes`)
 
 #### Arguments
