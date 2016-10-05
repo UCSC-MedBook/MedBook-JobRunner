@@ -116,31 +116,38 @@ UpdateCbioSecurity.prototype.run = function () {
   return jobDeferred.promise;
 }
 
-Meteor.startup(function () {
-  // NOTE: the job can also be called by any user via Meteor method
-  // in patient-care (refreshCBioPortalAccess)
-  var newJobBlueprint = {
-    name: "UpdateCbioSecurity",
-    user_id: "admin",
-    args: {
-      collab_names: [ "WCDT" ]
-    }
-  };
+// run this job immediately and also every 24 hours, but only on production
+// and staging (or wherever it's really running)
+if (process.env.WORLD_URL) {
+  Meteor.startup(function () {
+    // NOTE: the job can also be called by any user via Meteor method
+    // in patient-care (refreshCBioPortalAccess)
+    var newJobBlueprint = {
+      name: "UpdateCbioSecurity",
+      user_id: "admin",
+      args: {
+        collab_names: [ "WCDT" ]
+      }
+    };
 
-  // set up a cron job to execute every so often
-  SyncedCron.add({
-    name: "update-cbio-security",
-    schedule: function(parser) {
-      // parser is a later.parse object
-      return parser.text('every 6 hours');
-    },
-    job: function () {
+    // set up a cron job to execute every so often
+    SyncedCron.add({
+      name: "update-cbio-security",
+      schedule: function(parser) {
+        // parser is a later.parse object
+        return parser.text('every 24 hours');
+      },
+      job: function () {
+        Jobs.insert(newJobBlueprint);
+      },
+    });
+
+    // also execute immediately
+    // (after 5 minutes to make sure the cBio db started)
+    Meteor.setTimeout(function () {
       Jobs.insert(newJobBlueprint);
-    },
+    }, 1000 * 60 * 5);
   });
-
-  // also execute immediately
-  // Jobs.insert(newJobBlueprint); XXX
-});
+}
 
 JobClasses.UpdateCbioSecurity = UpdateCbioSecurity;

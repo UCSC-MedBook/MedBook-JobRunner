@@ -186,7 +186,7 @@ function runNextJob () {
 }
 
 Meteor.startup(function () {
-  console.log("Server is starting!");
+  console.log("job-runner server is starting!");
 
   // set errors for jobs that got killed
   Jobs.update({
