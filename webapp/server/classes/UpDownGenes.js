@@ -9,10 +9,21 @@ UpDownGenes.prototype.run = function () {
   var workDir = ntemp.mkdirSync("UpDownGenes");
   console.log("workDir: ", workDir);
 
+  // define some variables to use down below
+  var outlierFields = [
+    { name: "Genes", value_type: "String" },
+    { name: "Background median", value_type: "Number" },
+    { name: "Sample value", value_type: "Number" },
+  ];
+
+  var topFivePercentFields = [
+    { name: "Genes", value_type: "String" },
+    { name: "Sample value", value_type: "Number" },
+  ];
+
+  // prepare for the promise chain
   var deferred = Q.defer();
   var self = this;
-
-
 
   // if the first parts of this command have already been run,
   // grab the paths for those output files
@@ -70,7 +81,7 @@ UpDownGenes.prototype.run = function () {
   // also write out sample group data if necessary
   if (regenerateFiles) {
     // If we're using the filtered sample group,
-    // get the blob with filtered data; otherwise, export it from scratch. 
+    // get the blob with filtered data; otherwise, export it from scratch.
     if(usingFilter){
       var filteredBlob = Blobs2.findOne({
         associated_object:associated_object,
@@ -155,7 +166,7 @@ UpDownGenes.prototype.run = function () {
             console.log("error creating blob:", err);
           }
         }
-        // Metadata for median & up downblobs; note if filtered. 
+        // Metadata for median & up downblobs; note if filtered.
         var meta = { iqr_multiplier: iqr_multiplier};
         if(usingFilter){ meta.from_filtered_sample_group = true; }
 
@@ -180,7 +191,7 @@ UpDownGenes.prototype.run = function () {
       var createBlob2Sync = Meteor.wrapAsync(Blobs2.create);
 
       // Output files are associated with a job, not the sample group,
-      // so they don't need to be tagged with usingFilter. 
+      // so they don't need to be tagged with usingFilter.
       try{
         var upGenesBlob = createBlob2Sync(upPath, associated_job_object, {});
         var downGenesBlob = createBlob2Sync(downPath, associated_job_object, {});
@@ -195,41 +206,158 @@ UpDownGenes.prototype.run = function () {
       }
 
 
-      // parse strings
+      // parse the output into the output object and gene sets
+      var geneSetInsertPromises = [];
+
       _.each([
-        { name: "up_genes", fileString: fs.readFileSync(upGenesBlob.getFilePath(), "utf8") },
-        { name: "down_genes", fileString: fs.readFileSync(downGenesBlob.getFilePath(), "utf8") },
-        { name: "top5percent_genes", fileString: fs.readFileSync(top5blob.getFilePath(), "utf8") },
+        {
+          outlier_type: "up",
+          fileString: fs.readFileSync(upGenesBlob.getFilePath(), "utf8"),
+          fields: outlierFields,
+          prependToName: "Up outliers ",
+        },
+        {
+          outlier_type: "down",
+          fileString: fs.readFileSync(downGenesBlob.getFilePath(), "utf8"),
+          fields: outlierFields,
+          prependToName: "Down outliers ",
+        },
+        {
+          outlier_type: "top5percent",
+          fileString: fs.readFileSync(top5blob.getFilePath(), "utf8"),
+          fields: topFivePercentFields,
+          prependToName: "Top 5 percent ",
+        },
       ], function (outlier) {
         var lineArray = outlier.fileString.split("\n");
         var filteredLines = _.filter(lineArray, function (line) {
           return line !== "";
         });
 
-        // loop for each line
-        output[outlier.name] = _.map(filteredLines, function (line) {
+        var records = [];
+        var outlierOutput = [];
+
+        // calculate the list of records as well as the outlier output
+        // to put in the job's output object
+        _.each(filteredLines, function (line) {
           // Populate the found genes.
           // The top5percent overexpressed file has a different format from the
           // other files so split its columns separately.
-          if(outlier.name == "top5percent_genes"){
+          if(outlier.outlier_type == "top5percent"){
             var tabSplit = line.split("\t");
-            return {
-              gene_label: tabSplit[0],
-              sample_value: parseFloat(tabSplit[1]),
+
+            var gene_label = tabSplit[0];
+            var sample_value = parseFloat(tabSplit[1]);
+
+            outlierOutput.push({
+              gene_label: gene_label,
+              sample_value: sample_value,
               // no background_median
-            }
+            });
+
+            records.push({
+              "Genes": gene_label,
+              "Sample value": sample_value,
+            });
           }else{
             var tabSplit = line.split(" ");
-            return {
+
+            var gene_label = tabSplit[0];
+            var background_median = parseFloat(tabSplit[1]);
+            var sample_value = parseFloat(tabSplit[2]);
+
+            outlierOutput.push({
               gene_label: tabSplit[0],
-              background_median: parseFloat(tabSplit[1]),
-              sample_value: parseFloat(tabSplit[2]),
-            };
+              background_median: background_median,
+              sample_value: sample_value,
+            });
+
+            records.push({
+              "Genes": gene_label,
+              "Sample value": sample_value,
+              "Background median": background_median
+            });
+          }
+
+          if (isNaN(sample_value)) {
+            console.log("outlier.outlier_type:", outlier.outlier_type);
+            console.log("tabSplit:", tabSplit);
+            console.log("line:", line);
           }
         });
+
+        output[outlier.outlier_type + "_genes"] = outlierOutput;
+        output[outlier.outlier_type + "_genes_count"] = filteredLines.length;
+
+        // add a gene set associated with this job (but only if there is
+        // at least one outlier)
+        if (records.length) {
+          // figure out the name
+          var name = outlier.prependToName + ": " + self.job.args.sample_label;
+          if (outlier.outlier_type !== "top5percent") {
+            name += " vs. " + self.job.args.sample_group_name;
+          }
+
+          // figure out the description
+          var description;
+          if (outlier.outlier_type === "top5percent") {
+            description = "Top 5% of genes in " + self.job.args.sample_label;
+          } else {
+            var filteredGenesParens = "";
+            if (self.job.args.use_filtered_sample_group) {
+              filteredGenesParens = " (with gene filters applied)";
+            }
+
+            description = "genes in " + self.job.args.sample_label +
+                " compared to " + self.job.args.sample_group_name +
+                filteredGenesParens + " with an IQR of " +
+                self.job.args.iqr_multiplier;
+          }
+
+          var geneSetId = GeneSets.insert({
+            name: name,
+            description: description,
+
+            associated_object: {
+              collection_name: "Jobs",
+              mongo_id: self.job._id
+            },
+            metadata: {
+              outlier_type: outlier.outlier_type
+            },
+
+            fields: outlier.fields,
+
+            gene_labels: _.pluck(records, "Genes"),
+            gene_label_field: "Genes",
+          });
+
+          // insert the records associated with the gene set
+          var bulk = Records.rawCollection().initializeUnorderedBulkOp();
+          _.each(records, function (record) {
+            record.associated_object = {
+              collection_name: "GeneSets",
+              mongo_id: geneSetId,
+            };
+
+            MedBook.validateRecord(record, outlier.fields);
+
+            bulk.insert(record);
+          });
+
+          var geneSetDeferred = Q.defer();
+          geneSetInsertPromises.push(geneSetDeferred.promise);
+          bulk.execute(errorResultResolver(geneSetDeferred));
+        }
       });
 
-      deferred.resolve(output);
+      // wait for all of the bulk inserts to be done and then resolve the job
+      // with the output we built up previously
+      Q.all(geneSetInsertPromises)
+        .then(function () {
+          deferred.resolve(output);
+        })
+        .catch(deferred.reject);
     }, deferred.reject))
     // NOTE: Meteor.bindEnvironment returns immediately, meaning we can't
     // quite use the nice promise syntax of chaining .thens

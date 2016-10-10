@@ -7,6 +7,7 @@ ntemp.track(); // clean up folders after process exits
 path = Npm.require('path');
 fs = Npm.require('fs');
 spawn = Npm.require('child_process').spawn;
+
 // gets the first part of a string, adds "..." at the end if greater than 50
 // characters long
 firstPartOfLine = function (line) {
@@ -18,7 +19,6 @@ firstPartOfLine = function (line) {
   return firstPart;
 };
 
-
 /**
  * Wrap executing a command in a promise
  * @param  {string}                command command to execute
@@ -28,14 +28,23 @@ firstPartOfLine = function (line) {
  */
 // adapted from https://gist.github.com/Stuk/6226938
 spawnCommand = function (command, args, cwd, pathDefinitions) {
-  console.log("command:", command);
   if (args && !args.every(function (arg) {
         var type = typeof arg;
-        console.log("arg, type:", arg, type);
         return type === "boolean" || type === "string" || type === "number";
       })) {
     return Q.reject(new Error("All arguments must be a boolean, string or number"));
   }
+
+  // log what's about to be spawned off for easy debugging
+  // surround args with spaces with quotes
+  var quotedArgs = _.map(args, function (arg) {
+    if (typeof arg === "string" && arg.indexOf(" ") !== -1) {
+      return "\"" + arg + "\"";
+    }
+
+    return arg;
+  });
+  console.log("cd " + cwd + " && " + command + " " + quotedArgs.join(" "));
 
   // NOTE: we should really be using temp.path here...
   function hashCode(str) {
@@ -65,7 +74,6 @@ spawnCommand = function (command, args, cwd, pathDefinitions) {
     }
   }
 
-  console.log("stdoutPath:", stdoutPath);
   var stdout = fs.openSync(stdoutPath, "a");
   var stderr = fs.openSync(stderrPath, "a");
 
@@ -172,3 +180,13 @@ setBlobMetadata = function (blob, userId, otherMetadata) {
 //     ],
 //   });
 // };
+
+errorResultResolver = function (deferred) {
+  return function (error, result) {
+    if (error) {
+      deferred.reject(error);
+    } else {
+      deferred.resolve({});
+    }
+  };
+};
